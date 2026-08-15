@@ -123,6 +123,7 @@ validate → compile → test → package → install → deploy
 1. **`.example` 模板模式**：`config.properties.example` 进仓库（只有占位符没密码），真 `config.properties` 进黑名单。企业标配。
 2. **只对未跟踪文件生效**：已提交过的文件再加进 .gitignore 无效。所以要在第一次提交前写好规则。
 3. 忽略清单三类东西：能重新编译的（target/）、有隐私的（data/、key）、只属于你电脑的（.idea/）。
+4. **规则先于事实**：.gitignore 是"规则文件"而非"执行记录"——被忽略的文件现在不存在没关系，规则是预先埋伏，等它出现（如 Task 9 复制出 config.properties）那一刻自动生效。规则必须在文件出现前写好，晚了就失效。
 
 ---
 
@@ -220,3 +221,32 @@ git config --global user.email "你的邮箱"
 ```
 
 设完重新执行 `git commit` 即可。不想暴露邮箱可用 GitHub 的 `用户名@users.noreply.github.com` 匿名邮箱。
+
+### 6.5 LF/CRLF 警告是什么
+
+- Windows 用 CRLF 换行，Linux/Mac 用 LF，git 内部统一存 LF
+- `git add` 时警告 `LF will be replaced by CRLF` 是正常现象，不是错误
+- Windows 用户一次性设置：`git config --global core.autocrlf true`（提交时转 LF 存库、检出时转回 CRLF）
+
+### 6.6 `git log --oneline` 与提交署名
+
+- `--oneline` = 每条提交压成一行显示
+- 历史里的 `user <user@local>` 是 AI 代提交时用 `git -c user.name=... user.email=...` 一次性身份写的，属正常历史记录，不要用 rebase 改写
+- git 身份靠自觉，不做验证
+
+---
+
+## 7. 提交说明的写法：Conventional Commits（约定式提交）
+
+格式：`类型: 描述`，如 `docs: add git basics section to task 2 notes`
+
+| 前缀 | 含义 | 例子 |
+|---|---|---|
+| `feat:` | 新功能 | `feat: ItemRepository jdbc crud` |
+| `fix:` | 修 bug | `fix: parse empty date` |
+| `docs:` | 文档 | `docs: learning notes` |
+| `build:` | 构建/依赖 | `build: maven skeleton` |
+| `test:` | 测试 | `test: regression suite` |
+| `chore:` | 杂务 | `chore: update gitignore` |
+
+好处：`git log` 一屏扫出功能/修复/文档；面试官看 GitHub 时干净的历史是加分项。
