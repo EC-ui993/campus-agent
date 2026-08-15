@@ -34,7 +34,7 @@
 | JDK | Java 17 LTS（21 亦可） | 新项目主流；Spring Boot 3 要求 17+ |
 | 框架 | Spring Boot 3 | 企业 Java 后端事实标准 |
 | 构建 | Maven | 国内企业占比约七成，招聘最常见 |
-| 持久层 | MyBatis-Plus | 国内招聘 JD 最高频 ORM；官方支持 SQLite 方言 |
+| 持久层 | MyBatis-Plus | 国内招聘 JD 最高频 ORM；官方支持 SQLite 方言。阶段 1 先用裸 JDBC 打 SQL 基础（MyBatis-Plus 教程均基于 Spring Boot），阶段 2 引入 Spring Boot 时启用 |
 | 数据库 | SQLite（阶段 6 可迁移 MySQL） | 本地零运维单文件；MyBatis-Plus 使迁移成本极低，迁移本身是简历亮点 |
 | 模型 | DeepSeek API（JSON 输出模式） | 便宜、够强；无视觉能力，图片识别另行选型带视觉的模型 API |
 | 前端 | 单页 HTML + 原生 JS | 刻意做薄，学习重心在 Java 后端 |
@@ -92,7 +92,7 @@ SQLite（agent.db 单文件，本机）
 | 阶段 | 内容 | 交付物 | 主要学习点 |
 |---|---|---|---|
 | 0 准备 | JDK 17 + Maven + IDEA；注册 DeepSeek API；DB Browser；git 私有仓库 | 环境就绪 | Maven/IDEA/Git 基础 |
-| 1 最小闭环（命令行版） | 粘贴消息 → LLM 抽取 → 入库 → 命令行问答 | 能跑的控制台程序 | HTTP、JSON、SQL、MyBatis-Plus 入门 |
+| 1 最小闭环（命令行版） | 粘贴消息 → LLM 抽取 → 入库 → 命令行问答 | 能跑的控制台程序 | HTTP、JSON、SQL（裸 JDBC）、Maven 全流程 |
 | 2 网页化 | Spring Boot 3 + 单页聊天前端 + SSE 流式回复 + 局域网/手机访问 | 可用的网页聊天助手 | Spring Boot 核心（IoC/MVC/配置）、SSE |
 | 3 文件与图片 | Excel/PDF 课表解析；图片 OCR（带视觉的模型 API） | 四种摄入方式齐活 | 文件解析、多模态 API |
 | 4 自动化 | 每日早报、作业/考试到期提醒、实习信息定时搜集 | 会主动干活的助手 | Spring Scheduling、外部 API、LLM 过滤 |
