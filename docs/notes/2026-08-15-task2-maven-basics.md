@@ -250,3 +250,11 @@ git config --global user.email "你的邮箱"
 | `chore:` | 杂务 | `chore: update gitignore` |
 
 好处：`git log` 一屏扫出功能/修复/文档；面试官看 GitHub 时干净的历史是加分项。
+
+---
+
+## 8. 开发工具选型（2026-08-15）
+
+- **Java 代码/调试/测试 → IDEA**：Java 行业事实标准，招聘环境默认；调试器业界最强。配置/笔记文件 VS Code 与 IDEA 均可。
+- **学生福利**：学校邮箱在 jetbrains.com/community/education 认证，免费拿 IDEA Ultimate 全产品包（数据库工具、Spring 支持，阶段 2+ 用得上）；办不了就用 Community 版。
+- **学习期纪律**：坚持用终端跑 `mvn -q test` 而不是 IDEA 的绿色按钮——可视化会藏起编译/测试过程，学习目标恰是搞懂它们。熟练后再随便点。
