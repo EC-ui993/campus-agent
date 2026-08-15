@@ -1233,7 +1233,6 @@ class AssistantServiceTest {
         String reply = service.handle("不对，截止是11月21日");
         assertTrue(reply.startsWith("✅ 已更新"), "应为更新回执，实际: " + reply);
 
-        ExtractedItem unused = null; // 仅为可读性占位
         StoredItem updated = service.repository().getById("assignment", id).orElseThrow();
         assertEquals("2026-11-21", updated.dueDate());
         assertEquals("习题5.2", updated.title(), "未纠正的字段应保留原值");
@@ -1695,7 +1694,7 @@ Expected: BUILD SUCCESS。
 - [ ] **Step 4: 全量测试**
 
 Run: `mvn -q test`
-Expected: `Tests run: 16, Failures: 0, Errors: 0`（6+2+4+4 = 16）且 BUILD SUCCESS。
+Expected: `Tests run: 23, Failures: 0, Errors: 0`（6+2+4+4+1+5+1 = 23）且 BUILD SUCCESS。
 
 - [ ] **Step 5: Commit**
 
@@ -1836,7 +1835,7 @@ Expected: `Tests run: 1, Failures: 0, Errors: 0`。
 - [ ] **Step 3: 全量回归 + Commit**
 
 Run: `mvn -q test`
-Expected: `Tests run: 17, Failures: 0, Errors: 0` 且 BUILD SUCCESS。
+Expected: `Tests run: 23, Failures: 0, Errors: 0` 且 BUILD SUCCESS。
 
 ```powershell
 git add src/test/java/com/campus/agent/SampleMessagesTest.java
