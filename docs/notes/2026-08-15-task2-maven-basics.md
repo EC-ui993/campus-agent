@@ -175,3 +175,48 @@ chcp 65001     # 切 UTF-8 防乱码（每次新开终端都要）
 ```
 
 跑 Maven 前先 `pwd` 确认在项目根目录——`ls` 能看到 `pom.xml` 就对了。
+
+---
+
+## 6. git 基础（2026-08-15 补充）
+
+### 6.1 三个区域模型
+
+```
+工作区（你的文件） --git add--> 暂存区 --git commit--> 版本库（历史记录）
+```
+
+- `git add` = 选入购物车（暂存），可只挑部分文件提交
+- `git commit` = 结账留底（写入历史，永久保存）
+
+### 6.2 命令通用格式
+
+```
+git <子命令> [选项] [参数]
+```
+
+- 子命令：动作（add / commit / status / log / diff）
+- 选项：以 `-` 开头的开关。`-m` = `--message` 缩写（附提交说明）；`--global` = 全局配置；`-c name=value` = 本次临时覆盖
+- 参数：动作对象（文件名、提交说明）
+
+不加 `-m` 会弹编辑器让你写说明——新手永远带 `-m`。
+
+### 6.3 高频命令
+
+```powershell
+git status     # 当前状态：改动/暂存情况（随时跑）
+git log        # 提交历史（q 退出）
+git diff       # 看具体改了哪些行
+git add .      # 全部改动入暂存区（.gitignore 的除外）
+```
+
+### 6.4 首次提交报 `Author identity unknown`？
+
+git 需要知道你是谁才能写历史。一次性设置（全局）：
+
+```powershell
+git config --global user.name "你的名字"
+git config --global user.email "你的邮箱"
+```
+
+设完重新执行 `git commit` 即可。不想暴露邮箱可用 GitHub 的 `用户名@users.noreply.github.com` 匿名邮箱。
