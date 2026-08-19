@@ -1,11 +1,13 @@
-# 第 3 天总结：理解回填 · ExtractedItem（2026-08-17）
+# 第 3 天总结：理解回填 · ExtractedItem + Database（2026-08-17）
 
-> 今日状态：暂停写新代码，完成 `ExtractedItem.java` 和 `ExtractedItemTest.java` 的逐行理解回填；测试仍 8/8 绿
+> 今日状态：暂停写新代码，完成 `ExtractedItem.java` / `ExtractedItemTest.java` / `Database.java` / `DatabaseTest.java` 的逐行理解回填；测试仍 8/8 绿
 
 ## 今日范围
 
 - ① `src\main\java\com\campus\agent\model\ExtractedItem.java`
 - ② `src\test\java\com\campus\agent\model\ExtractedItemTest.java`
+- ③ `src\main\java\com\campus\agent\store\Database.java`
+- ④ `src\test\java\com\campus\agent\store\DatabaseTest.java`
 
 ## 今日知识点
 
@@ -93,6 +95,85 @@
 - 当 `+` 一边是字符串时，Java 会做字符串拼接，不是数学加法。
 - 例：`"实际: " + errors` 把错误列表转成字符串拼到提示语后面。
 
+### 14. JDBC vs SQLite
+
+- **JDBC** 是 Java 提供的数据库访问接口/工具，比如 `Connection`、`Statement`、`DriverManager`。
+- **SQLite** 是真正干活的数据库引擎，负责存储数据和执行 SQL。
+- 关系：Java 代码用 JDBC API → 驱动 → 操作 SQLite。
+
+### 15. 数据库连接 Connection
+
+- `Connection` 是 Java 程序和数据库之间的通信通道/会话，像一条电话线。
+- `DriverManager.getConnection("jdbc:sqlite:...")` 用来建立连接。
+- 用完必须 `close()`，否则一直占用资源。
+- SQLite 的特点是：如果数据库文件不存在，连接时会自动创建空文件。
+
+### 16. AutoCloseable 与 try-with-resources
+
+- `implements AutoCloseable` 表示这个类可以“自动关闭”。
+- `try (Statement st = conn.createStatement()) { ... }` 是 try-with-resources。
+- 括号里的资源必须实现 `AutoCloseable`；try 块结束后 Java 自动调用 `close()`，不用手写 finally。
+- `Database` 实现 `AutoCloseable`，所以测试里能写 `try (Database db = new Database(dbFile)) { ... }`。
+
+### 17. Statement 与三种执行方法
+
+- `Statement` 是 JDBC 里执行 SQL 的“传话人”，通过 `conn.createStatement()` 创建。
+- `execute(sql)`：适合建表、PRAGMA 等不一定返回结果集的 SQL。
+- `executeQuery(sql)`：执行 SELECT，返回 `ResultSet` 结果集。
+- `executeUpdate(sql)`：执行 INSERT/UPDATE/DELETE，返回受影响行数（int）。
+
+### 18. Database 构造方法做的事
+
+1. 如果有父目录，用 `Files.createDirectories` 确保目录存在；已存在会忽略。
+2. 用 `DriverManager.getConnection` 打开 SQLite 连接，并赋给 `final Connection conn`。
+3. 用 try-with-resources 创建 `Statement`，执行两条 PRAGMA。
+4. 把 `SCHEMA` 按分号切分，逐条执行建表语句。
+
+### 19. PRAGMA
+
+- `PRAGMA journal_mode=WAL;`：设置 SQLite 日志模式为 WAL，提升并发读写性能。
+- `PRAGMA busy_timeout=5000;`：数据库被其他连接占用时，最多等待 5 秒。
+
+### 20. SCHEMA 与建表
+
+- `SCHEMA` 是 `private static final String`，内部使用的建表 SQL 集合。
+- `CREATE TABLE IF NOT EXISTS`：表不存在就创建，已存在就跳过，避免重复建表报错（幂等）。
+- 必须按 `;` 切分后逐条执行，因为 SQLite 的 `execute()` 一次只执行第一条语句，后续会静默丢弃。
+
+### 21. 7 张表的结构记忆
+
+- `assignments`：id、title、course、teacher、content、due_date、due_time、status(默认 pending)、source_message_id、created_at
+- `exams`：比 assignments 多 `location`，status 默认 `upcoming`
+- `todos`：没有 course、teacher，status 默认 `pending`
+- `courses`：id、title、teacher、location、source_message_id、created_at（没有 content/due/status）
+- `events`：最接近 todos，多了 `location`，status 默认 `upcoming`
+- `messages`：id、role、content、created_at；role 和 content 都是 NOT NULL
+- `raw_inbox`：id、content、reason、created_at；content NOT NULL
+
+### 22. @TempDir
+
+- JUnit 5 注解：测试前自动创建临时目录，测试后自动清理。
+- `tmp.resolve("test.db")` 得到临时目录下的 `test.db` 路径。
+- 好处：测试不会污染项目真实数据。
+
+### 23. ResultSet
+
+- `ResultSet` 是 SELECT 查询返回的结果集，像一张临时表格：有行有列。
+- `rs.next()`：把当前行移到下一行；一开始指向第一行之前，所以要先调用它。
+- `rs.getString("name")`：取当前行中名为 `name` 的列值，转成 String。
+- `rs.getInt("c")`：取当前行中名为 `c` 的列值，类型是 int。
+
+### 24. COUNT 与别名
+
+- `SELECT COUNT(*) AS c FROM messages`：统计 messages 表行数，并把结果列命名为 `c`。
+- 查询结果是一行一列：`c` 的值是行数。
+- 如果插入 3 条记录，`rs.getInt("c")` 就返回 3。
+
+### 25. 测试验证思路
+
+- 第一个测试：建库后查 `sqlite_master`，用 `Set` 收集所有表名，再用 `containsAll` 验证 7 张表都在。
+- 第二个测试：第一次打开插入一条数据，关闭后重新打开，用 `COUNT(*)` 验证数据还在，证明 SQLite 持久化。
+
 ## 今天答错的点（复习重点）
 
 1. **record 有 setter？** 错。record 没有 setter，创建后不可变；取值方法叫 `type()` 不叫 `getType()`。
@@ -100,9 +181,14 @@
 3. **`validate()` 接收八个字段？** 错。它是实例方法，不接收参数，检查自己身上的字段。
 4. **选填项“为空是否合法”？** 不够精确。选填项为 `null` 合法；有值时才检查格式。
 5. **`assertEquals` 参数顺序**：第一个是期望值，第二个是实际值。
+6. **`courses` 没有 location？** 口误。`courses` 有 location，没有的是 content / due_date / due_time / status。
+7. **`ResultSet` 是“Set 形式的结果”？** 不准确。`ResultSet` 是像临时表格一样的结果集，有行有列，不是 Java 的 `Set` 集合。
+8. **`rs.getInt("c")` 是“取第 c 列”？** 不准确。`c` 是列名，`rs.getInt("c")` 是取出名为 `c` 的那一列的值。
 
 ## 明日接续点
 
-- 下一步按交接文档：进入 `Database.java`，先讲 try-with-resources 和异常；JDBC/SQL 细节留到“数据库”专题。
-- 也可以先自己把这份笔记再过一遍，能用自己的话讲出“JSON → ExtractedItem → validate()”全流程，再开始 Database。
+- `ExtractedItem` 和 `Database` 的理解回填已完成；JDBC/SQL 细节留到“数据库”专题。
+- 下一步候选：
+  - 回 Task 5（StoredItem + ItemRepository，写新代码前可以先预习 `PreparedStatement`、`RETURN_GENERATED_KEYS`）；
+  - 或继续把其他已写文件做理解回填（如 `Prompts`、`LlmClient` 等）。
 - 已知测试覆盖小缺口：目前没有专门测“JSON 缺失 type 字段”的用例；功能上会报错，后续可按 TDD 补。
