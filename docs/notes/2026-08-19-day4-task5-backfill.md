@@ -48,12 +48,7 @@
 ### 6. setParams 可变参数
 
 - `Object... params` 是可变参数，方法内部当作数组用。
-- 在 `insert` 中实际传入的参数**不固定**，取决于 `item.type()` 对应的表需要哪些字段：
-  - `assignment`：6 个 String（或 null）+ 1 个 long = 7 个参数
-  - `exam`：7 个 String（或 null）+ 1 个 long = 8 个参数
-  - `todo`：4 个 String（或 null）+ 1 个 long = 5 个参数
-  - `course`：3 个 String（或 null）+ 1 个 long = 4 个参数
-  - `event`：5 个 String（或 null）+ 1 个 long = 6 个参数
+- 在 `insert` 中实际传入：7 个 String（或 null）+ 1 个 long。
 - 循环里 `i + 1` 对应 SQL 中第几个 `?` 占位符（数组下标从 0 开始）。
 - 三种处理：
   - `null` → `ps.setObject(i + 1, null)`
