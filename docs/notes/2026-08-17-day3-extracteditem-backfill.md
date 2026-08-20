@@ -174,6 +174,48 @@
 - 第一个测试：建库后查 `sqlite_master`，用 `Set` 收集所有表名，再用 `containsAll` 验证 7 张表都在。
 - 第二个测试：第一次打开插入一条数据，关闭后重新打开，用 `COUNT(*)` 验证数据还在，证明 SQLite 持久化。
 
+## 文件与方法链路
+
+### 文件职责
+
+- `ExtractedItem.java`：LLM 抽取结果模型，负责 JSON 解析、空字段清洗、合法性校验。
+- `ExtractedItemTest.java`：验证解析、空字段转 null、必填/格式校验、坏 JSON 抛异常。
+- `Database.java`：打开 SQLite 连接、建目录、设置 PRAGMA、创建 7 张表、提供连接和关闭。
+- `DatabaseTest.java`：验证建库建表和持久化。
+
+### 依赖关系
+
+```text
+JSON 字符串
+   ↓ ExtractedItem.fromJson()
+ExtractedItem
+   ↓ item.validate()
+List<String> 错误列表 / 空列表
+```
+
+```text
+DatabaseTest
+   ↓ new Database(dbFile)
+Database 构造方法
+   ↓ DriverManager.getConnection
+SQLite 连接
+   ↓ conn() / Statement
+SQL 执行
+```
+
+### 主要方法链路
+
+- `ExtractedItem.fromJson(String)`：
+  `MAPPER.readTree` → `path(...).asText("")` → `blankToNull` → `new ExtractedItem(...)`
+- `ExtractedItem.validate()`：
+  检查 type/title 必填，检查 dueDate/dueTime 格式 → 返回 `List<String>`
+- `ExtractedItem.blankToNull(String)`：
+  空/纯空格 → `null`；否则 `trim()`
+- `Database(Path)`：
+  创建父目录 → 打开连接 → 执行 PRAGMA → 逐条执行 SCHEMA
+- `Database.conn()` / `close()`：
+  提供连接 / 关闭连接
+
 ## 今天答错的点（复习重点）
 
 1. **record 有 setter？** 错。record 没有 setter，创建后不可变；取值方法叫 `type()` 不叫 `getType()`。

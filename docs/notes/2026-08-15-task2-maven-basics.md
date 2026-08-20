@@ -156,6 +156,20 @@ db.path=data/agent.db                  ← 有默认值，可省
 
 ---
 
+## 3.5 三件套文件链路
+
+- `pom.xml`：Maven 的“项目说明书”，决定项目坐标、依赖、插件、编译目标。
+- `.gitignore`：git 的“黑名单”，决定哪些文件不提交。
+- `config.properties.example`：配置模板，进仓库；真实配置 `config.properties` 被 .gitignore 忽略。
+
+三者关系：
+
+```text
+pom.xml          → 告诉 Maven 怎么构建项目
+.gitignore       → 保护 target/、data/、config.properties 不进 git
+config.properties.example → 提供配置格式模板，真 key 留在本地
+```
+
 ## 4. 报错速查表（本阶段遇到的）
 
 | 报错关键句 | 含义 | 解法 |

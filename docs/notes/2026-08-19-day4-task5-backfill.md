@@ -48,7 +48,12 @@
 ### 6. setParams 可变参数
 
 - `Object... params` 是可变参数，方法内部当作数组用。
-- 在 `insert` 中实际传入：7 个 String（或 null）+ 1 个 long。
+- 在 `insert` 中实际传入的参数**不固定**，取决于 `item.type()` 对应的表需要哪些字段：
+  - `assignment`：6 个 String（或 null）+ 1 个 long = 7 个参数
+  - `exam`：7 个 String（或 null）+ 1 个 long = 8 个参数
+  - `todo`：4 个 String（或 null）+ 1 个 long = 5 个参数
+  - `course`：3 个 String（或 null）+ 1 个 long = 4 个参数
+  - `event`：5 个 String（或 null）+ 1 个 long = 6 个参数
 - 循环里 `i + 1` 对应 SQL 中第几个 `?` 占位符（数组下标从 0 开始）。
 - 三种处理：
   - `null` → `ps.setObject(i + 1, null)`
@@ -100,17 +105,62 @@
 - 修复：把断言改成 `assertEquals(0, repo.allItems().size())`。
 - 教训：计划是人写的会出错，测试是机器跑的，能暴露问题。
 
+## 文件与方法链路
+
+### 文件职责
+
+- `ExtractedItem`：LLM 抽取出来的原始结果，8 个字段；负责 `fromJson` 解析和 `validate` 校验。
+- `StoredItem`：数据库查询出来的一行记录，10 个字段；负责 `toMap` 转成给 LLM 看的上下文。
+- `ItemRepository`：基于 `Database` 做业务数据读写；不负责连接管理。
+- `Database`：负责打开连接、建表、提供 `conn()`。
+
+### 依赖关系
+
+```text
+ExtractedItem
+   ↓ 作为参数
+ItemRepository.insert / updateById
+   ↓ 通过 db.conn() 拿连接
+Database
+   ↓ 真正执行 SQL
+SQLite
+```
+
+```text
+ItemRepository.allItems / getById
+   ↓ 查询结果每行 map()
+StoredItem
+   ↓ toMap()
+后续 AssistantService 拼 LLM 上下文
+```
+
+### 主要方法链路
+
+- `insert(ExtractedItem, sourceMessageId)`：
+  `switch(type) 选 SQL` → `setParams` 填 `?` → `executeUpdate()` → `getGeneratedKeys()` → 返回 `long id`
+- `updateById(ExtractedItem, id)`：
+  `switch(type) 选 SQL` → `setParams` 填 `?` → `executeUpdate()` → 返回 `boolean`
+- `allItems()`：
+  依次查 5 张业务表 → `queryInto` 逐行 `map` 成 `StoredItem` → 返回 `List<StoredItem>`
+- `getById(type, id)`：
+  按 type 选 SQL → `PreparedStatement` 查一行 → 有则 `Optional.of(map(rs))`，无则 `Optional.empty()`
+- `insertMessage(role, content)` / `insertRaw(content, reason)`：
+  固定表 → `setString` → `executeUpdate()` → `getGeneratedKeys()` → 返回 `long id`
+- `setParams(ps, Object... params)`：
+  遍历参数，按类型 `setObject` / `setLong` / `setString` 填入占位符
+
 ## 今天答错的点（复习重点）
 
 1. **Task 5 测试里是“输入 JSON”？** 错。是直接 `new ExtractedItem(...)` 构造对象，不是 JSON。
 2. **`allItems()` 大小由“对象数量”决定？** 不准确。由“插入数据库的记录次数/条数”决定。
 3. **`insert(..., 1)` 里的 `1` 是 status？** 错。是 `sourceMessageId`（来源消息 id）。
-4. **`setParams` 传的都是 String？** 错。是 7 个 String（或 null）+ 1 个 long。
-5. **`keys.getLong(1)` 的 `1` 是列名？** 错。是第 1 列，因为自增主键结果集通常只有一列。
-6. **`i + 1` 对应自增 id？** 错。对应 SQL 里的 `?` 占位符编号。
-7. **`Optional.empty()` 是清空？** 错。是创建一个空盒子。
-8. **`PreparedStatement ps` 是“连接”？** 错。它是执行 SQL 的对象，连接是 `Connection`。
-9. **`NULL AS location` 最终变成 status？** 错。变成 `StoredItem.location` 为 null。
+4. **`setParams` 传的都是 String？** 错。最后一个 `sourceMessageId` 是 long；而且 String 数量不固定，取决于 type 对应的表。
+5. **笔记原句“7 个 String + 1 个 long”也不够准确？** 对。这只是 `exam` 的情况；`assignment` 是 6 个 String + 1 个 long，其他 type 又不同。
+6. **`keys.getLong(1)` 的 `1` 是列名？** 错。是第 1 列，因为自增主键结果集通常只有一列。
+7. **`i + 1` 对应自增 id？** 错。对应 SQL 里的 `?` 占位符编号。
+8. **`Optional.empty()` 是清空？** 错。是创建一个空盒子。
+9. **`PreparedStatement ps` 是“连接”？** 错。它是执行 SQL 的对象，连接是 `Connection`。
+10. **`NULL AS location` 最终变成 status？** 错。变成 `StoredItem.location` 为 null。
 
 ## 明日接续点
 

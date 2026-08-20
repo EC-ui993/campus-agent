@@ -47,6 +47,23 @@
 - Java 用 IDEA（学生邮箱免费领 Ultimate）；学习期坚持终端跑 mvn
 - 防身命令：pwd / ls / chcp 65001
 
+## 文件与方法链路（Task 2 + Task 3）
+
+### Task 2：Maven 骨架三件套
+
+- `pom.xml`：Maven 项目说明书（坐标 + 依赖 + 插件）
+- `.gitignore`：git 黑名单（忽略 target/、data/、config.properties、.idea/ 等）
+- `config.properties.example`：配置模板（真 key 只放本地 `config.properties`）
+
+关系：`pom.xml` 决定怎么构建；`.gitignore` 保护不该进 git 的文件；`.example` 提供配置模板。
+
+### Task 3：ExtractedItem
+
+- `ExtractedItem.java`：LLM 抽取结果模型，`fromJson` 解析 JSON，`validate` 校验。
+- `ExtractedItemTest.java`：6 个测试，验证解析、空字段、必填、类型、日期格式、坏 JSON。
+
+链路：JSON → `ExtractedItem.fromJson()` → `ExtractedItem` → `validate()` → 错误列表
+
 ## 明天接续点
 
 **从 Task 4 开始**（Database 建库建表 + DatabaseTest 2 个测试）。

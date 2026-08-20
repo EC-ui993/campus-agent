@@ -26,6 +26,33 @@
 - `git add -A` 时机：一次工作单元完成、改动杂（增+删+改）时，commit 前执行；铁律是前面 `git status --short` 检查、后面 commit；不该在"要分批提交/没检查状态/有半成品"时用
 - `git status` 干净 = 没有未提交改动，是"就绪"信号
 
+## 文件与方法链路（Task 4）
+
+### 文件职责
+
+- `Database.java`：负责打开 SQLite 连接、初始化表结构、提供连接、关闭连接。
+- `DatabaseTest.java`：验证建库建表成功、数据能持久化。
+
+### 依赖关系
+
+```text
+DatabaseTest
+   ↓ new Database(dbFile)
+Database 构造方法
+   ↓ 创建目录 + 打开连接
+SQLite 文件
+   ↓ 执行 PRAGMA + SCHEMA
+7 张业务表
+```
+
+### 主要方法链路
+
+- `Database(Path dbFile)`：
+  `Files.createDirectories(父目录)` → `DriverManager.getConnection(...)` → 执行 PRAGMA → 逐条执行 SCHEMA
+- `conn()`：把内部 `Connection` 交给外部使用
+- `close()`：关闭 `Connection`
+- `SCHEMA`：静态常量，存放 7 张表的建表 SQL
+
 ## 明天接续点
 
 **Task 5：StoredItem + ItemRepository（第一套真 CRUD，任务量高峰）**
