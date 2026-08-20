@@ -105,6 +105,50 @@
 - 修复：把断言改成 `assertEquals(0, repo.allItems().size())`。
 - 教训：计划是人写的会出错，测试是机器跑的，能暴露问题。
 
+## 文件与方法链路
+
+### 文件职责
+
+- `ExtractedItem`：LLM 抽取出来的原始结果，8 个字段；负责 `fromJson` 解析和 `validate` 校验。
+- `StoredItem`：数据库查询出来的一行记录，10 个字段；负责 `toMap` 转成给 LLM 看的上下文。
+- `ItemRepository`：基于 `Database` 做业务数据读写；不负责连接管理。
+- `Database`：负责打开连接、建表、提供 `conn()`。
+
+### 依赖关系
+
+```text
+ExtractedItem
+   ↓ 作为参数
+ItemRepository.insert / updateById
+   ↓ 通过 db.conn() 拿连接
+Database
+   ↓ 真正执行 SQL
+SQLite
+```
+
+```text
+ItemRepository.allItems / getById
+   ↓ 查询结果每行 map()
+StoredItem
+   ↓ toMap()
+后续 AssistantService 拼 LLM 上下文
+```
+
+### 主要方法链路
+
+- `insert(ExtractedItem, sourceMessageId)`：
+  `switch(type) 选 SQL` → `setParams` 填 `?` → `executeUpdate()` → `getGeneratedKeys()` → 返回 `long id`
+- `updateById(ExtractedItem, id)`：
+  `switch(type) 选 SQL` → `setParams` 填 `?` → `executeUpdate()` → 返回 `boolean`
+- `allItems()`：
+  依次查 5 张业务表 → `queryInto` 逐行 `map` 成 `StoredItem` → 返回 `List<StoredItem>`
+- `getById(type, id)`：
+  按 type 选 SQL → `PreparedStatement` 查一行 → 有则 `Optional.of(map(rs))`，无则 `Optional.empty()`
+- `insertMessage(role, content)` / `insertRaw(content, reason)`：
+  固定表 → `setString` → `executeUpdate()` → `getGeneratedKeys()` → 返回 `long id`
+- `setParams(ps, Object... params)`：
+  遍历参数，按类型 `setObject` / `setLong` / `setString` 填入占位符
+
 ## 今天答错的点（复习重点）
 
 1. **Task 5 测试里是“输入 JSON”？** 错。是直接 `new ExtractedItem(...)` 构造对象，不是 JSON。
