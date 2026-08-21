@@ -74,3 +74,104 @@ ItemRepository
   - 真实 API 冒烟通过
   - DB Browser 数据确认
   - 用自己的话讲清完整流水线
+
+
+## 完整流水线（阶段 1 验收版）
+
+### 一、总体流程
+
+1. 用户输入：`String input`。
+2. `handle(input)`：
+   - 先以 `role=user` 把用户消息存入 `messages`，拿到 `messageId`。
+   - 调用 `classify(input)` 得到 `intent`。
+   - 根据 `intent` 走 `question` / `correction` / `record` 三条分支。
+3. 最终返回给用户的回复是 `String`。
+
+### 二、数据状态变化
+
+```text
+用户原始消息
+   String
+      ↓ repo.insertMessage("user", input)
+messages 表里的一行（role=user, content=原文）
+   DB Row
+      ↓ classify(input)
+llm.chatJson(...) 返回 JSON 字符串
+   String JSON
+      ↓ MAPPER.readTree
+JsonNode
+      ↓ path("intent").asText("record")
+intent 字符串（record / question / correction）
+   String
+```
+
+### 三、record 分支
+
+```text
+intent = record
+   ↓ llm.chatJson(Prompts.extract(), input)
+抽取结果 JSON 字符串
+   String JSON
+      ↓ ExtractedItem.fromJson(json)
+ExtractedItem 对象
+   ↓ item.validate()
+错误列表为空？
+   ├─ 是：repo.insert(item, messageId)
+   │        ↓
+   │     对应 type 表里的一行（assignments/exams/todos/courses/events）
+   │        ↓
+   │     返回 ✅ 已记录：...
+   └─ 否：最多重试 2 次
+           ↓ 仍失败
+        原文存入 raw_inbox + assistant 提示存入 messages
+        返回 ⚠️ 没能解析...
+```
+
+### 四、question 分支
+
+```text
+intent = question
+   ↓ repo.allItems()
+List<StoredItem>
+   ↓ 每个 StoredItem.toMap()
+List<Map<String, Object>>
+   ↓ MAPPER.writeValueAsString(rows)
+JSON 字符串（数据库上下文）
+   ↓ llm.chat(Prompts.ANSWER, 上下文 + 用户问题)
+String reply
+   ↓ repo.insertMessage("assistant", reply)
+messages 表里的一行（role=assistant）
+   ↓
+返回 String reply
+```
+
+### 五、correction 分支
+
+```text
+intent = correction
+   ↓ 检查 lastInsertedId / lastInsertedType
+没有上一条 → 返回提示
+   ↓ llm.chatJson(Prompts.CORRECT, input)
+纠正 JSON 字符串
+   String JSON
+      ↓ ExtractedItem.fromJson(json)
+ExtractedItem corr
+   ↓ repo.getById(lastType, lastId)
+Optional<StoredItem> current
+   ↓ current 存在
+StoredItem cur
+   ↓ pick(纠正值, 原值) 合并
+ExtractedItem merged
+   ↓ merged.validate()
+错误列表为空？
+   ├─ 是：repo.updateById(merged, lastId)
+   │        ↓
+   │     对应 type 表里的一行被更新
+   │        ↓
+   │     返回 ✅ 已更新：...
+   └─ 否：返回 纠正失败：...
+```
+
+### 六、一句话总结
+
+> 用户消息从 `String` 开始，先变成 `messages` 里的一行；再通过 LLM 变成 `JSON 字符串`，解析成 `ExtractedItem`；最后按 type 写入对应业务表；所有助手回复也作为 `role=assistant` 写回 `messages`。
