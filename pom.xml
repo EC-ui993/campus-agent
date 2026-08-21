@@ -46,7 +46,7 @@
         <version>3.2.0</version>
         <configuration>
           <mainClass>com.campus.agent.Main</mainClass>
-          <commandlineArgs>-Dfile.encoding=UTF-8</commandlineArgs>
+          
         </configuration>
       </plugin>
     </plugins>
