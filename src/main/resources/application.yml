@@ -1,0 +1,10 @@
+server:
+  port: 8080
+  # address: 0.0.0.0
+
+app:
+  api-key: ${DEEPSEEK_API_KEY:在这里填入你的key}
+  model: deepseek-chat
+  base-url: https://api.deepseek.com
+  db-path: data/agent.db
+  access-token: change-me-please
