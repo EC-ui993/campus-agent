@@ -43,17 +43,35 @@
 
 ### 5. Spring MVC 请求流程
 
+这里要分成两个阶段理解：
+
+**阶段 A：启动时（扫描 + 建立映射）**
+
+- Spring Boot 启动时扫描所有类上的注解；
+- 用反射读取 `@RestController`、`@GetMapping` 等；
+- 建立一张“URL → Controller 方法”的映射表。
+
+**阶段 B：请求时（查表 + 调用）**
+
 ```text
 浏览器
    ↓ HTTP 请求
 DispatcherServlet（前端控制器，Spring 自动提供）
-   ↓ 根据 URL 找 Controller 方法
-Controller 方法执行
-   ↓ 返回 Java 对象
-Spring 自动转成 JSON
-   ↓ HTTP 响应
+   ↓ 根据 URL 查“启动时建好的映射表”
+找到对应的 Controller 方法
+   ↓ 执行方法
+返回 Java 对象
+   ↓ Spring 自动转成 JSON
+HTTP 响应
+   ↓
 浏览器
 ```
+
+关键点：
+
+- “根据 URL 找 Controller 方法”不是每次都用反射现场扫描；
+- 而是 Spring 启动时已经用反射扫描并建好映射，请求来了直接查表。
+- 所以更准确的说法是：**启动时反射扫描建映射，请求时查表调用。**
 
 ### 6. SSE 与普通响应的区别
 
@@ -63,7 +81,7 @@ Spring 自动转成 JSON
 
 ## 验收回答（整体流程）
 
-> Spring Boot 启动后，一个 HTTP 请求先传入 Spring 自带的前端控制器 DispatcherServlet，然后根据 URL 调用对应的 Controller 方法；Spring 框架用反射读取注解，决定调用哪个方法、怎么处理；如果需要对象，IoC 容器会创建或找到对应的 Bean 传入；Controller 返回 Java 对象后，Spring 自动转成 JSON 返回给浏览器。整个过程是控制反转的体现。
+> Spring Boot 启动后，会先扫描类上的注解，用反射建立“URL → Controller 方法”的映射表。一个 HTTP 请求进来后，先传给 Spring 自带的前端控制器 DispatcherServlet，它根据 URL 查这张映射表，找到对应的 Controller 方法并调用；如果需要对象，IoC 容器会创建或找到对应的 Bean 传入；Controller 返回 Java 对象后，Spring 自动转成 JSON 返回给浏览器。整个过程是控制反转的体现。
 
 ## 今天答错的点（复习重点）
 
