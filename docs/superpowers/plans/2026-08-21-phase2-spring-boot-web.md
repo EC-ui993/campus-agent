@@ -717,6 +717,24 @@ Run: `mvn -q -Dtest=AssistantServiceTest test` 绿；`mvn -q test` 全量绿。
 
 ---
 
+## 补充任务（Task 6 之后）：课程表增加起止时间
+
+**Files:**
+- Modify: `Database.java`（courses 表增加 `start_time`、`end_time`）
+- Modify: `ExtractedItem.java`（增加 `startTime`、`endTime`）
+- Modify: `StoredItem.java`（增加 `startTime`、`endTime`）
+- Modify: `ItemRepository.java`（course 插入/更新/查询支持起止时间）
+- Modify: `Prompts.java`（抽取提示词增加 `startTime`、`endTime`）
+- Modify: `AssistantService.java`（纠正合并时保留起止时间）
+- Modify: `ItemRepositoryTest.java`（构造参数更新）
+
+**验证：** `mvn -q test` 全绿。
+
+**说明：** 解决课程只有名称/地点、没有具体上课时间的问题；`courses` 表现在能存 `start_time` 和 `end_time`，问答时能把这些时间带给 LLM。
+
+---
+
+
 ## Task 7: 局域网访问 + 简单口令
 
 **Files:**

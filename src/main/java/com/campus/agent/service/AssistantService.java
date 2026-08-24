@@ -168,7 +168,9 @@ public class AssistantService {
                     pick(corr.content(), cur.content()),
                     pick(corr.location(), cur.location()),
                     pick(corr.dueDate(), cur.dueDate()),
-                    pick(corr.dueTime(), cur.dueTime()));
+                    pick(corr.dueTime(), cur.dueTime()),
+                      pick(corr.startTime(), cur.startTime()),
+                      pick(corr.endTime(), cur.endTime()));
             List<String> errors = merged.validate();
             if (!errors.isEmpty()) {
                 String reply = "纠正失败：" + String.join("；", errors);

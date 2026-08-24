@@ -79,6 +79,8 @@ public class Database implements AutoCloseable {
               title TEXT NOT NULL,
               teacher TEXT,
               location TEXT,
+                start_time TEXT,
+                end_time TEXT,
               source_message_id INTEGER,
               created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
             CREATE TABLE IF NOT EXISTS events(

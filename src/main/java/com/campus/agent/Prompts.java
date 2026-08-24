@@ -30,6 +30,8 @@ public final class Prompts {
             - location: 地点（没有留空）
             - dueDate: 截止/考试/活动日期，格式 yyyy-MM-dd（“今天/明天/下周X”要换算成具体日期；没有则留空）
             - dueTime: 时间，格式 HH:mm（没有留空）
+              - startTime: 课程/日程开始时间，格式 HH:mm（没有则留空）
+              - endTime: 课程/日程结束时间，格式 HH:mm（没有则留空）
             今天是 {today}。
             """;
 

@@ -14,7 +14,8 @@ import java.util.Set;
  */
 public record ExtractedItem(
         String type, String title, String course, String teacher,
-        String content, String location, String dueDate, String dueTime) {
+        String content, String location, String dueDate, String dueTime,
+        String startTime, String endTime) {
 
     public static final Set<String> VALID_TYPES =
             Set.of("assignment", "exam", "todo", "course", "event");
@@ -36,7 +37,9 @@ public record ExtractedItem(
                 blankToNull(n.path("content").asText("")),
                 blankToNull(n.path("location").asText("")),
                 blankToNull(n.path("dueDate").asText("")),
-                blankToNull(n.path("dueTime").asText("")));
+                blankToNull(n.path("dueTime").asText("")),
+                blankToNull(n.path("startTime").asText("")),
+                blankToNull(n.path("endTime").asText("")));
     }
 
     /** 校验抽取结果；返回错误列表，空列表表示合法。 */
@@ -53,6 +56,12 @@ public record ExtractedItem(
         }
         if (dueTime != null && !dueTime.matches("\\d{2}:\\d{2}")) {
             errors.add("dueTime 格式应为 HH:mm，收到: " + dueTime);
+        if (startTime != null && !startTime.matches("\\d{2}:\\d{2}")) {
+            errors.add("startTime 格式应为 HH:mm，收到: " + startTime);
+        }
+        if (endTime != null && !endTime.matches("\\d{2}:\\d{2}")) {
+            errors.add("endTime 格式应为 HH:mm，收到: " + endTime);
+        }
         }
         return errors;
     }
