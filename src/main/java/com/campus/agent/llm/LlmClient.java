@@ -8,4 +8,6 @@ public interface LlmClient {
 
     /** 要求模型严格输出 JSON（DeepSeek json_object 模式），返回 JSON 字符串。 */
     String chatJson(String systemPrompt, String userPrompt);
+
+    void chatStream(String systemPrompt, String userPrompt,java.util.function.Consumer<String> onDelta);
 }

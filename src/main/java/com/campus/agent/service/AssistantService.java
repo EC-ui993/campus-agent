@@ -54,6 +54,35 @@ public class AssistantService {
         };
     }
 
+    public String handleStreaming(String input,java.util.function.Consumer<String> onDelta) {
+        long messageId;
+        try {
+            messageId = repo.insertMessage("user", input);
+            String intent = classify(input);
+            if (intent.equals("question")) {
+                List<Map<String, Object>> rows = new ArrayList<>();
+                for (StoredItem s : repo.allItems()) {
+                    rows.add(s.toMap());
+                }
+                String context = rows.isEmpty()?"（数据库为空，没有任何记录）":MAPPER.writeValueAsString(rows);
+                StringBuilder acc = new StringBuilder();
+                llm.chatStream(Prompts.ANSWER,"【数据库内容】\n" + context + "\n\n【用户问题】\n" + input,delta -> {acc.append(delta);onDelta.accept(delta);});
+                String reply = acc.toString();
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
+            else{
+                return switch (intent){
+                    case "correction" -> correct(input);
+                    default -> record(input, messageId);
+                };
+            }
+        }catch(SQLException e){
+                throw new RuntimeException("保存聊天记录失败: " + e.getMessage(), e);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
     private String classify(String input) {
         try {
             JsonNode n = MAPPER.readTree(llm.chatJson(Prompts.CLASSIFY, input));

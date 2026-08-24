@@ -44,16 +44,43 @@
     input.value = "";
     addBubble(text, "user");
     sendBtn.disabled = true;
+    const bubble = addBubble("", "assistant");
     try {
-      const resp = await fetch("/api/chat", {
+      const resp = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text })
       });
-      const data = await resp.json();
-      addBubble(data.reply, "assistant");
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+        let finished = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value,{stream:true});
+        const parts = buffer.split("\n");
+        buffer =  parts.pop();
+        for (const part of parts) {
+          const line = part.trim();
+          if (line.startsWith("event:done")) {
+              finished = true;
+              continue;
+            }
+            if (line.startsWith("data:")) {
+            const text = line.substring(5).trim();
+              if (finished) {
+                bubble.textContent = text;
+              } else {
+                bubble.textContent += text;
+              }
+            messages.scrollTop = messages.scrollHeight;
+          }
+        }
+      }
+      if(!bubble.textContent) addBubble("无回复", "assistant");
     } catch (err) {
-      addBubble("网络错误：" + err, "assistant");
+      bubble.textContent = "网络错误：" + err;
     } finally {
       sendBtn.disabled = false;
     }

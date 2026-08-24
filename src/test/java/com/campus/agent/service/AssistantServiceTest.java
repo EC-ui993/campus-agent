@@ -101,4 +101,18 @@ class AssistantServiceTest {
             assertTrue(service.handle("随便说点什么").startsWith("✅"));
         }
     }
+
+    @Test
+    void questionStreamEmitsDeltas(@TempDir Path tmp) throws Exception {
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"question\"}")
+                .streamChunks("今天", "没", "有课。");
+        try (Database db = new Database(tmp.resolve("stream.db"))) {
+            AssistantService service = new AssistantService(llm, new ItemRepository(db), db);
+            StringBuilder received = new StringBuilder();
+            String full = service.handleStreaming("今天有什么课？", received::append);
+            assertEquals("今天没有课。", full);
+            assertEquals("今天没有课。", received.toString());
+        }
+    }
 }

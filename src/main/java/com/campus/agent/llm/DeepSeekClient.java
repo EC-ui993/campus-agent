@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /** 通过 DeepSeek chat/completions API 调用模型。 */
 public class DeepSeekClient implements LlmClient {
@@ -41,6 +42,62 @@ public class DeepSeekClient implements LlmClient {
     @Override
     public String chatJson(String systemPrompt, String userPrompt) {
         return request(systemPrompt, userPrompt, "json_object");
+    }
+
+    @Override
+    public void chatStream(String systemPrompt, String userPrompt, java.util.function.Consumer<String> onDelta){
+        try{
+            HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/chat/completions"))
+                    .timeout(Duration.ofSeconds(120))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(
+                            buildStreamBody(model, systemPrompt, userPrompt),
+                            StandardCharsets.UTF_8))
+                    .build();
+        HttpResponse<Stream<String>> resp = http.send(req, HttpResponse.BodyHandlers.ofLines());
+        if(resp.statusCode() != 200){
+            throw new LlmException("API 返回 " + resp.statusCode());
+        }
+        resp.body().forEach(line ->{
+            if(!line.startsWith("data: ")) return;
+            line = line.substring(6);
+            line = line.trim();
+            if(line.equals("[DONE]")) return;
+            else{
+                String delta = parseStreamDelta(line);
+                if(delta != null && !delta.isEmpty()){
+                    onDelta.accept(delta);
+                }
+            }
+        });
+        } catch (IOException e) {
+            throw new LlmException("请求失败", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new LlmException("请求被中断", e);
+        }
+    }
+
+    static String buildStreamBody(String model, String systemPrompt, String userPrompt) throws IOException {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("temperature", 0.2);
+        body.put("stream", true);
+        body.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)));
+        return MAPPER.writeValueAsString(body);
+    }
+
+    static String parseStreamDelta(String payload) {
+        try {
+            JsonNode n = MAPPER.readTree(payload);
+            JsonNode delta = n.path("choices").path(0).path("delta").path("content");
+            return delta.isMissingNode() || delta.isNull() ? null : delta.asText();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private String request(String systemPrompt, String userPrompt, String responseFormat) {
