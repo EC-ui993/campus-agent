@@ -811,6 +811,356 @@ if (!token) {
 
 ---
 
+## Task 7.5: 课程周重复 + 单日临时变动（规划层 2026-08-21 定案，必须在 Task 8 之前做）
+
+**为什么现在做**：Task 8 会把表结构冻结进 schema.sql 和 MyBatis-Plus 实体——表结构定稿前加字段只改两行 SQL，定稿后要动实体/Mapper/仓库/测试。这是改数据模型的最后一个便宜窗口，且「今天有什么课」是产品的核心查询。
+
+**Files:**
+- Modify: `model/ExtractedItem.java`（+weekday、+weeks 两个字段）
+- Create: `model/ExtractedOverride.java`（课程变动的独立抽取记录）
+- Modify: `Prompts.java`（EXTRACT 增加 course_override 类型与 weekday/weeks 字段说明）
+- Modify: `store/Database.java`（courses 增列、course_overrides 表、老库容错迁移）
+- Modify: `store/ItemRepository.java`（courses 写入增列、insertOverrideByTitle、coursesOn）
+- Create: `store/CourseOccurrence.java`（当日有效课程读模型）
+- Modify: `service/AssistantService.java`（回答上下文注入"今日课程"段）
+- Test: 新增 `store/CourseScheduleTest.java`；改 `model/ExtractedItemTest.java`、`service/AssistantServiceTest.java`
+
+- [ ] **Step 1: 讲概念**
+  - **重复事件 + 例外**（日历软件的经典模型）：默认规则（每周重复）之上叠例外（单日生效）；例外按日期作用域**自然过期**——"下周自动恢复"不需要任何清理代码
+  - **weekday 编码**：ISO 标准，`LocalDate.getDayOfWeek().getValue()`：1=周一 … 7=周日
+  - **数据库迁移**：`CREATE TABLE IF NOT EXISTS` **不会**给已存在的表加列——老库要跑一次性 `ALTER TABLE`；用"捕获 duplicate column 错误并忽略"实现幂等容错（真实世界的迁移模式；阶段 3 可换 Flyway）
+  - **YAGNI**：weeks（周次范围）只存不筛——学期起始日期还没有，无法算"当前第几周"；留到阶段 3 加学期信息后再启用
+
+- [ ] **Step 2: 写失败测试**（CourseScheduleTest）
+
+```java
+package com.campus.agent.store;
+
+import com.campus.agent.model.ExtractedItem;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class CourseScheduleTest {
+
+    // 2026-08-24 是周一
+    private static final LocalDate MONDAY = LocalDate.of(2026, 8, 24);
+
+    private static ExtractedItem gaoshu() {
+        return new ExtractedItem("course", "高数", null, "王老师", null,
+                "A201", null, null, "08:00", "09:40", 1, null);
+    }
+
+    @Test
+    void weeklyCourseAppearsOnItsWeekday(@TempDir Path tmp) throws Exception {
+        try (Database db = new Database(tmp.resolve("s.db"))) {
+            ItemRepository repo = new ItemRepository(db);
+            repo.insert(gaoshu(), 1);
+            List<CourseOccurrence> mondayCourses = repo.coursesOn(MONDAY);
+            assertEquals(1, mondayCourses.size());
+            assertEquals("高数", mondayCourses.get(0).title());
+            assertEquals("08:00", mondayCourses.get(0).startTime());
+            assertTrue(repo.coursesOn(MONDAY.plusDays(1)).isEmpty(), "周二不该有高数");
+        }
+    }
+
+    @Test
+    void cancelOverrideAffectsOnlyThatDate(@TempDir Path tmp) throws Exception {
+        try (Database db = new Database(tmp.resolve("s2.db"))) {
+            ItemRepository repo = new ItemRepository(db);
+            repo.insert(gaoshu(), 1);
+            // 下周一停课
+            repo.insertOverrideByTitle("高数", MONDAY.plusDays(7), "cancel", null, null, null, null, 2);
+            assertEquals(1, repo.coursesOn(MONDAY).size(), "本周一照常");
+            assertTrue(repo.coursesOn(MONDAY.plusDays(7)).isEmpty(), "下周一被取消");
+            assertEquals(1, repo.coursesOn(MONDAY.plusDays(14)).size(), "再下周自动恢复");
+        }
+    }
+
+    @Test
+    void moveOverrideReplacesTimeAndLocation(@TempDir Path tmp) throws Exception {
+        try (Database db = new Database(tmp.resolve("s3.db"))) {
+            ItemRepository repo = new ItemRepository(db);
+            repo.insert(gaoshu(), 1);
+            repo.insertOverrideByTitle("高数", MONDAY, "move", "10:00", "11:40", "B302", null, 2);
+            CourseOccurrence c = repo.coursesOn(MONDAY).get(0);
+            assertEquals("10:00", c.startTime());
+            assertEquals("11:40", c.endTime());
+            assertEquals("B302", c.location());
+        }
+    }
+
+    @Test
+    void overrideTitleUnmatchedIsIgnored(@TempDir Path tmp) throws Exception {
+        try (Database db = new Database(tmp.resolve("s4.db"))) {
+            ItemRepository repo = new ItemRepository(db);
+            repo.insert(gaoshu(), 1);
+            // 课程名写错 → 找不到 course_id，变动被忽略（不报错）
+            repo.insertOverrideByTitle("高树", MONDAY, "cancel", null, null, null, null, 2);
+            assertEquals(1, repo.coursesOn(MONDAY).size());
+        }
+    }
+}
+```
+
+Run: `mvn -q -Dtest=CourseScheduleTest test` → 红（`ExtractedItem` 构造参数不匹配 / `CourseOccurrence` 不存在等）。
+
+- [ ] **Step 3: ExtractedItem 加字段**（record 增加 `Integer weekday, String weeks` 两个字段及 fromJson/validate；validate 规则：weekday 若存在必须 1-7；`VALID_TYPES` 增加 `"course_override"`。**注意**：所有现有 `new ExtractedItem(...)` 调用点要补两个参数——让编译错误带你逐个修，这是"改公共构造器"的必修课）
+
+- [ ] **Step 4: 写 ExtractedOverride**
+
+```java
+package com.campus.agent.model;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/** 课程临时变动的抽取结果（独立于 ExtractedItem，字段语义不同）。 */
+public record ExtractedOverride(
+        String courseTitle, String overrideDate, String kind,
+        String newStartTime, String newEndTime, String newLocation, String note) {
+
+    public static final Set<String> VALID_KINDS = Set.of("cancel", "move");
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    public static ExtractedOverride fromJson(String json) {
+        final JsonNode n;
+        try {
+            n = MAPPER.readTree(json);
+        } catch (IOException e) {
+            throw new RuntimeException("变动抽取结果不是合法 JSON: " + e.getMessage());
+        }
+        return new ExtractedOverride(
+                blankToNull(n.path("courseTitle").asText("")),
+                blankToNull(n.path("overrideDate").asText("")),
+                blankToNull(n.path("kind").asText("")),
+                blankToNull(n.path("newStartTime").asText("")),
+                blankToNull(n.path("newEndTime").asText("")),
+                blankToNull(n.path("newLocation").asText("")),
+                blankToNull(n.path("note").asText("")));
+    }
+
+    public List<String> validate() {
+        List<String> errors = new ArrayList<>();
+        if (courseTitle == null || courseTitle.isBlank()) errors.add("courseTitle 不能为空（要变动的课程名）");
+        if (overrideDate == null || !overrideDate.matches("\\d{4}-\\d{2}-\\d{2}"))
+            errors.add("overrideDate 格式应为 yyyy-MM-dd，收到: " + overrideDate);
+        if (kind == null || !VALID_KINDS.contains(kind)) errors.add("kind 必须是 cancel 或 move，收到: " + kind);
+        if (newStartTime != null && !newStartTime.matches("\\d{2}:\\d{2}"))
+            errors.add("newStartTime 格式应为 HH:mm，收到: " + newStartTime);
+        if (newEndTime != null && !newEndTime.matches("\\d{2}:\\d{2}"))
+            errors.add("newEndTime 格式应为 HH:mm，收到: " + newEndTime);
+        return errors;
+    }
+
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
+    }
+}
+```
+
+- [ ] **Step 5: Prompts.EXTRACT 增补**
+
+在 EXTRACT 模板中：
+- type 取值行改为：`assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / event(日程活动)`，并注明"停课、调课、换教室这类'某门课某天的变动'归为 course_override；每周固定的课程安排归为 course"
+- 字段区增加：
+  ```
+  - weekday: 整数 1=周一…7=周日（仅 course 用，没有留空）
+  - weeks: 周次范围如 "1-16"（仅 course 用，没有留空）
+  - courseTitle: 被变动的课程名（仅 course_override 用）
+  - overrideDate: 变动生效的日期 yyyy-MM-dd（仅 course_override 用）
+  - kind: cancel(停课) 或 move(调时间/换地点)（仅 course_override 用）
+  - newStartTime/newEndTime/newLocation: 变动后的新时间地点（仅 move 用）
+  - note: 变动备注（没有留空）
+  ```
+
+- [ ] **Step 6: Database 增表 + 老库迁移**
+
+SCHEMA 里 courses 的 CREATE 增加两列（`weekday INTEGER, weeks TEXT`，放在 location 之后）；SCHEMA 末尾追加：
+
+```sql
+CREATE TABLE IF NOT EXISTS course_overrides(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_id INTEGER,
+  course_title TEXT,
+  override_date TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  new_start_time TEXT,
+  new_end_time TEXT,
+  new_location TEXT,
+  note TEXT,
+  source_message_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+```
+
+构造函数里 SCHEMA 执行完后，加老库迁移（容忍重复列）：
+
+```java
+private static final String[] MIGRATIONS = {
+        "ALTER TABLE courses ADD COLUMN weekday INTEGER",
+        "ALTER TABLE courses ADD COLUMN weeks TEXT"
+};
+
+// 在 SCHEMA 循环执行之后：
+for (String sql : MIGRATIONS) {
+    try {
+        st.execute(sql);
+    } catch (SQLException e) {
+        if (!e.getMessage().toLowerCase().contains("duplicate column")) {
+            throw e;
+        }
+        // duplicate column name: 老库已加过列，忽略
+    }
+}
+```
+
+- [ ] **Step 7: CourseOccurrence**
+
+```java
+package com.campus.agent.store;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/** 某一天的"有效课程"（已应用临时变动后的最终结果）。 */
+public record CourseOccurrence(
+        long courseId, String title, String teacher, String location,
+        String startTime, String endTime, String note) {
+
+    public Map<String, Object> toMap() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("courseId", courseId);
+        m.put("title", title);
+        if (teacher != null) m.put("teacher", teacher);
+        if (location != null) m.put("location", location);
+        if (startTime != null) m.put("startTime", startTime);
+        if (endTime != null) m.put("endTime", endTime);
+        if (note != null) m.put("note", note);
+        return m;
+    }
+}
+```
+
+- [ ] **Step 8: ItemRepository 三处修改**
+
+courses 的 INSERT/UPDATE SQL 增加 `weekday, weeks` 列（INSERT 列顺序 `title,teacher,location,weekday,weeks,start_time,end_time,source_message_id`，参数 `item.weekday(), item.weeks()`；`setParams` 的 `ps.setObject` 对 Integer 没问题）。新增两个方法：
+
+```java
+/** 按课程名登记某天的临时变动；课程名找不到时 course_id 为 null（变动被 coursesOn 忽略）。 */
+public long insertOverrideByTitle(String courseTitle, LocalDate date, String kind,
+                                  String newStart, String newEnd, String newLocation,
+                                  String note, long sourceMessageId) throws SQLException {
+    Long courseId = null;
+    try (PreparedStatement ps = db.conn().prepareStatement(
+            "SELECT id FROM courses WHERE title=? LIMIT 1")) {
+        ps.setString(1, courseTitle);
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) courseId = rs.getLong("id");
+        }
+    }
+    try (PreparedStatement ps = db.conn().prepareStatement(
+            "INSERT INTO course_overrides(course_id,course_title,override_date,kind,"
+                    + "new_start_time,new_end_time,new_location,note,source_message_id) "
+                    + "VALUES(?,?,?,?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
+        if (courseId != null) ps.setLong(1, courseId); else ps.setObject(1, null);
+        ps.setString(2, courseTitle);
+        ps.setString(3, date.toString());
+        ps.setString(4, kind);
+        ps.setString(5, newStart);
+        ps.setString(6, newEnd);
+        ps.setString(7, newLocation);
+        ps.setString(8, note);
+        ps.setLong(9, sourceMessageId);
+        ps.executeUpdate();
+        try (ResultSet keys = ps.getGeneratedKeys()) {
+            keys.next();
+            return keys.getLong(1);
+        }
+    }
+}
+
+/** 某天的有效课程：默认课程（按 weekday）叠加当日变动。 */
+public List<CourseOccurrence> coursesOn(LocalDate date) throws SQLException {
+    int weekday = date.getDayOfWeek().getValue();
+    Map<Long, CourseOccurrence> byId = new LinkedHashMap<>();
+    String courseSql = "SELECT id,title,teacher,location,start_time,end_time FROM courses WHERE weekday=? ORDER BY start_time";
+    try (PreparedStatement ps = db.conn().prepareStatement(courseSql)) {
+        ps.setInt(1, weekday);
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                byId.put(rs.getLong("id"), new CourseOccurrence(rs.getLong("id"), rs.getString("title"),
+                        rs.getString("teacher"), rs.getString("location"),
+                        rs.getString("start_time"), rs.getString("end_time"), null));
+            }
+        }
+    }
+    String ovSql = "SELECT course_id,kind,new_start_time,new_end_time,new_location,note FROM course_overrides WHERE override_date=?";
+    try (PreparedStatement ps = db.conn().prepareStatement(ovSql)) {
+        ps.setString(1, date.toString());
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                long cid = rs.getLong("course_id");
+                CourseOccurrence base = byId.get(cid);
+                if (base == null) continue;   // 没匹配到课程的变动忽略
+                if ("cancel".equals(rs.getString("kind"))) {
+                    byId.remove(cid);
+                } else {
+                    byId.put(cid, new CourseOccurrence(cid, base.title(), base.teacher(),
+                            pick(rs.getString("new_location"), base.location()),
+                            pick(rs.getString("new_start_time"), base.startTime()),
+                            pick(rs.getString("new_end_time"), base.endTime()),
+                            rs.getString("note")));
+                }
+            }
+        }
+    }
+    return List.copyOf(byId.values());
+}
+
+private String pick(String newVal, String oldVal) {
+    return (newVal != null && !newVal.isBlank()) ? newVal : oldVal;
+}
+```
+
+- [ ] **Step 9: AssistantService 注入"今日课程"段**
+
+`answer()` 和 `handleStreaming()` 的 context 组装处，在 `【数据库内容】` 之后加：
+
+```java
+List<CourseOccurrence> todayCourses;
+try {
+    todayCourses = repo.coursesOn(LocalDate.now());
+} catch (SQLException e) {
+    throw new RuntimeException("查询今日课程失败: " + e.getMessage(), e);
+}
+String weekdayLabel = "周" + "一二三四五六日".charAt(LocalDate.now().getDayOfWeek().getValue() - 1);
+String todaySection = todayCourses.isEmpty()
+        ? "（今天没有安排课程）"
+        : MAPPER.writeValueAsString(todayCourses.stream().map(CourseOccurrence::toMap).toList());
+String context = "【数据库内容】\n" + contextData
+        + "\n\n【今天(" + LocalDate.now() + " " + weekdayLabel + ")的课程，已应用临时变动】\n" + todaySection
+        + "\n\n【用户问题】\n" + input;
+```
+
+- [ ] **Step 10: 摄入分支**：`AssistantService.record()` 里，抽取出的 item 若 `type().equals("course_override")`，改为 `ExtractedOverride.fromJson(json)` + `validate()`，成功则 `repo.insertOverrideByTitle(...)` 并回执"✅ 已记录变动：高数 2026-08-31 停课"；校验失败走既有重试/raw_inbox 兜底。
+
+- [ ] **Step 11: 补测试**
+  - `ExtractedItemTest`：weekday=8 报错；weekday=1 通过；`course_override` 类型合法。
+  - `AssistantServiceTest`：给 FakeLlm 加 `lastUserPrompt` 捕获字段（chat/chatJson 都记录）；先插入一条 weekday=今天的 course，再提问，断言 FakeLlm 收到的 prompt 包含 "今天(" 与 "高数"。
+  - 全量 `mvn -q test` 绿后 Commit：`feat: weekly courses with per-date overrides and today-course context`
+
+---
+
 ## Task 8: MyBatis-Plus 替换持久层
 
 **Files:**
@@ -838,7 +1188,7 @@ if (!token) {
 </dependency>
 ```
 
-- [ ] **Step 3: 建 schema.sql**（把 `Database.SCHEMA` 文本块的 7 条建表语句原样搬进 `src/main/resources/schema.sql`，去掉三引号、保留分号）
+- [ ] **Step 3: 建 schema.sql**（把 `Database.SCHEMA` 文本块的建表语句原样搬进 `src/main/resources/schema.sql`，去掉三引号、保留分号。**注意现在是 8 张表**：7.5 新增的 course_overrides 以及 courses 的 weekday/weeks 列都要在。老库的加列已由 7.5 的容错 ALTER 完成，schema.sql 只管新库；`CREATE IF NOT EXISTS` 不会给已存在的表加列，若发现老库缺列，用 Database 启动一次即可同步）
 
 - [ ] **Step 4: application.yml 增加**
 
@@ -895,7 +1245,14 @@ public class Assignment {
 }
 ```
 
-其余 4 个实体是**学员练习**（导师核对，不代写）：`Exam`(@TableName("exams")，字段 title/course/teacher/content/location/dueDate/dueTime/status/sourceMessageId)、`Todo`("todos"，字段 title/content/dueDate/dueTime/status/sourceMessageId)、`Course`("courses"，字段 title/teacher/location/sourceMessageId)、`Event`("events"，字段 title/content/location/dueDate/dueTime/status/sourceMessageId)。created_at 列有数据库默认值，实体不需要字段。
+其余实体是**学员练习**（导师核对，不代写）：
+- `Exam`(@TableName("exams")，字段 title/course/teacher/content/location/dueDate/dueTime/status/sourceMessageId)
+- `Todo`("todos"，字段 title/content/dueDate/dueTime/status/sourceMessageId)
+- `Course`("courses"，字段 title/teacher/location/**weekday(Integer)**/**weeks(String)**/startTime/endTime/sourceMessageId)
+- `Event`("events"，字段 title/content/location/dueDate/dueTime/status/sourceMessageId)
+- `CourseOverride`("course_overrides"，字段 courseId/courseTitle/overrideDate/kind/newStartTime/newEndTime/newLocation/note/sourceMessageId)
+
+created_at 列有数据库默认值，实体不需要字段。
 
 - [ ] **Step 7: 写 5 个 Mapper**
 
@@ -910,7 +1267,7 @@ import org.apache.ibatis.annotations.Mapper;
 public interface AssignmentMapper extends BaseMapper<Assignment> {
 }
 ```
-（Exam/Todo/Course/Event 同理。）
+（Exam/Todo/Course/Event/CourseOverride 同理——CourseOverrideMapper 学员照猫画虎，导师核对。）
 
 - [ ] **Step 8: ItemRepository 改 MP 实现**（方法签名不变，内部换实现）
 
@@ -949,12 +1306,18 @@ public class ItemRepository {
     // insertMessage / insertRaw：阶段 1 用 JDBC 即可——演示"MP 管业务表、JDBC 管杂表"的混合用法。
     // 注意：原来的 Database 字段没了，这两个方法改为从哪拿连接？
     // 方案：注入 DataSource，dataSource.getConnection() 用 try-with-resources。
+
+    // 7.5 新增的两个方法也要迁移到 MP：
+    // - insertOverrideByTitle：先 courseMapper.selectOne(title 匹配) 拿 courseId，
+    //   再 courseOverrideMapper.insert（courseId 可能为 null）
+    // - coursesOn(date)：courseMapper.selectList(wrapper.eq(weekday, date.getDayOfWeek().getValue()))
+    //   同理 courseOverrideMapper.selectList(wrapper.eq(overrideDate, date.toString()))，合并逻辑照搬 7.5 的 JDBC 版。
 }
 ```
 
 （insertMessage/insertRaw 改用注入的 `javax.sql.DataSource`。）
 
-- [ ] **Step 9: ItemRepositoryTest 改造**：改为 `@SpringBootTest` + `@DynamicPropertySource`（临时 db 文件 + `spring.datasource.url` 覆盖）+ 注入 ItemRepository；4 个测试场景（insertAndListRoundTrip / updateByIdMergesFields / insertMessageAndRawInbox / allItemsCoversEveryType）断言不变。`AssistantServiceTest` 保持原样（它用自己的 Database，不走 Spring）。AppBeans 里删除 `database()`/`itemRepository(Database)` 旧装配，改为注入 5 个 Mapper 装配 ItemRepository。
+- [ ] **Step 9: ItemRepositoryTest 改造**：改为 `@SpringBootTest` + `@DynamicPropertySource`（临时 db 文件 + `spring.datasource.url` 覆盖）+ 注入 ItemRepository；原有测试场景断言不变，并**把 CourseScheduleTest 的 4 个场景也补进来**（coursesOn 在 MP 下的回归）。`AssistantServiceTest` 保持原样（它用自己的 Database，不走 Spring）。AppBeans 里删除 `database()`/`itemRepository(Database)` 旧装配，改为注入 6 个 Mapper 装配 ItemRepository。
 
 - [ ] **Step 10: 验证 + Commit**：`mvn -q test` 全量绿；`mvn spring-boot:run` 后浏览器聊天照常工作。Commit：`feat: replace jdbc repository with mybatis-plus mappers and hikari datasource`
 
@@ -1067,6 +1430,7 @@ public List<Map<String, Object>> items() {
 
 - [ ] `mvn test` 全绿
 - [ ] 电脑浏览器端到端：录入 → 提问（流式）→ 纠正指定记录
+- [ ] **课表场景**：录入门课（含 weekday）→ 问"今天有什么课"答对；登记某天停课/调课 → 当天答对、次周自动恢复
 - [ ] 手机同 WiFi 可访问、口令生效、窄屏可用
 - [ ] 阶段 1 的真实数据在网页版可见（同一个 agent.db）
-- [ ] 学员能复述：请求怎么进 Controller；SSE 为什么能"打字机"；MyBatis-Plus 为什么不需要写 SQL；纠正为什么不能靠"记住上一条"
+- [ ] 学员能复述：请求怎么进 Controller；SSE 为什么能"打字机"；MyBatis-Plus 为什么不需要写 SQL；纠正为什么不能靠"记住上一条"；重复课程 + 例外为什么能"下周自动恢复"
