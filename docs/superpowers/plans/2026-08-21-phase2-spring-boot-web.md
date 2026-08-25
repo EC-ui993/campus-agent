@@ -734,84 +734,7 @@ Run: `mvn -q -Dtest=AssistantServiceTest test` 绿；`mvn -q test` 全量绿。
 
 ---
 
-
-## Task 7: 局域网访问 + 简单口令
-
-**Files:**
-- Modify: `application.yml`（打开 0.0.0.0）
-- Create: `web/AccessTokenFilter.java`
-- Modify: `static/index.html`（口令弹窗 + 请求头）
-
-- [ ] **Step 1: 讲概念**：`0.0.0.0` 绑定 = 监听所有网卡（局域网内他人可访问）；Filter 与 Interceptor 的区别（Filter 是 Servlet 层、最早拦；这里够用）；HTTP 头传递凭据；localStorage（浏览器本地存储）。
-
-- [ ] **Step 2: application.yml 打开绑定**（去掉 `address` 行的注释）
-
-- [ ] **Step 3: 写 AccessTokenFilter**
-
-```java
-package com.campus.agent.web;
-
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-
-@Component
-@Order(1)
-public class AccessTokenFilter extends OncePerRequestFilter {
-
-    private final String token;
-
-    public AccessTokenFilter(@Value("${app.access-token}") String token) {
-        this.token = token;
-    }
-
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
-        String path = request.getRequestURI();
-        boolean isApi = path.startsWith("/api/");
-        if (!isApi) {           // 静态页面直接放行，口令在页面里校验
-            chain.doFilter(request, response);
-            return;
-        }
-        String given = request.getHeader("X-Access-Token");
-        if (token.equals(given)) {
-            chain.doFilter(request, response);
-        } else {
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"口令不正确\"}");
-        }
-    }
-}
-```
-
-- [ ] **Step 4: 前端加口令**（index.html 脚本开头）
-
-```javascript
-const TOKEN_KEY = "campus-agent-token";
-let token = localStorage.getItem(TOKEN_KEY);
-if (!token) {
-  token = prompt("请输入访问口令：");
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-}
-// 所有 fetch 的 headers 里加：
-//   "X-Access-Token": token
-// 收到 401 时提示并清除本地存储：localStorage.removeItem(TOKEN_KEY)
-```
-
-- [ ] **Step 5: 验证**：`mvn spring-boot:run` → 电脑浏览器带口令访问正常；PowerShell 里 `ipconfig` 查局域网 IP（形如 192.168.x.x）→ **手机连同一 WiFi**，浏览器开 `http://192.168.x.x:8080` → 输口令 → 聊天。手机无响应时查 Windows 防火墙放行 8080。Commit：`feat: lan access with simple token filter`
-
----
-
-## Task 6.5: 课程周重复 + 单日临时变动（规划层 2026-08-21 定案，必须在 Task 8 之前做）
+## Task 6.5: 课程周重复 + 单日临时变动（规划层 2026-08-25 定案，必须在 Task 8 之前做）
 
 **为什么现在做**：Task 8 会把表结构冻结进 schema.sql 和 MyBatis-Plus 实体——表结构定稿前加字段只改两行 SQL，定稿后要动实体/Mapper/仓库/测试。这是改数据模型的最后一个便宜窗口，且「今天有什么课」是产品的核心查询。
 
@@ -1158,6 +1081,82 @@ String context = "【数据库内容】\n" + contextData
   - `ExtractedItemTest`：weekday=8 报错；weekday=1 通过；`course_override` 类型合法。
   - `AssistantServiceTest`：给 FakeLlm 加 `lastUserPrompt` 捕获字段（chat/chatJson 都记录）；先插入一条 weekday=今天的 course，再提问，断言 FakeLlm 收到的 prompt 包含 "今天(" 与 "高数"。
   - 全量 `mvn -q test` 绿后 Commit：`feat: weekly courses with per-date overrides and today-course context`
+
+---
+
+## Task 7: 局域网访问 + 简单口令
+
+**Files:**
+- Modify: `application.yml`（打开 0.0.0.0）
+- Create: `web/AccessTokenFilter.java`
+- Modify: `static/index.html`（口令弹窗 + 请求头）
+
+- [ ] **Step 1: 讲概念**：`0.0.0.0` 绑定 = 监听所有网卡（局域网内他人可访问）；Filter 与 Interceptor 的区别（Filter 是 Servlet 层、最早拦；这里够用）；HTTP 头传递凭据；localStorage（浏览器本地存储）。
+
+- [ ] **Step 2: application.yml 打开绑定**（去掉 `address` 行的注释）
+
+- [ ] **Step 3: 写 AccessTokenFilter**
+
+```java
+package com.campus.agent.web;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+@Order(1)
+public class AccessTokenFilter extends OncePerRequestFilter {
+
+    private final String token;
+
+    public AccessTokenFilter(@Value("${app.access-token}") String token) {
+        this.token = token;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
+        String path = request.getRequestURI();
+        boolean isApi = path.startsWith("/api/");
+        if (!isApi) {           // 静态页面直接放行，口令在页面里校验
+            chain.doFilter(request, response);
+            return;
+        }
+        String given = request.getHeader("X-Access-Token");
+        if (token.equals(given)) {
+            chain.doFilter(request, response);
+        } else {
+            response.setStatus(401);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"口令不正确\"}");
+        }
+    }
+}
+```
+
+- [ ] **Step 4: 前端加口令**（index.html 脚本开头）
+
+```javascript
+const TOKEN_KEY = "campus-agent-token";
+let token = localStorage.getItem(TOKEN_KEY);
+if (!token) {
+  token = prompt("请输入访问口令：");
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+}
+// 所有 fetch 的 headers 里加：
+//   "X-Access-Token": token
+// 收到 401 时提示并清除本地存储：localStorage.removeItem(TOKEN_KEY)
+```
+
+- [ ] **Step 5: 验证**：`mvn spring-boot:run` → 电脑浏览器带口令访问正常；PowerShell 里 `ipconfig` 查局域网 IP（形如 192.168.x.x）→ **手机连同一 WiFi**，浏览器开 `http://192.168.x.x:8080` → 输口令 → 聊天。手机无响应时查 Windows 防火墙放行 8080。Commit：`feat: lan access with simple token filter`
 
 ---
 
