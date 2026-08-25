@@ -3,9 +3,12 @@ package com.campus.agent.service;
 import com.campus.agent.Prompts;
 import com.campus.agent.llm.LlmClient;
 import com.campus.agent.model.ExtractedItem;
+import com.campus.agent.model.ExtractedOverride;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.StoredItem;
+import com.campus.agent.store.CourseOccurrence;
+import java.time.LocalDate;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -65,8 +68,12 @@ public class AssistantService {
                     rows.add(s.toMap());
                 }
                 String context = rows.isEmpty()?"（数据库为空，没有任何记录）":MAPPER.writeValueAsString(rows);
+                String weekdayLabel = "周" + "一二三四五六日".charAt(LocalDate.now().getDayOfWeek().getValue() - 1);
+                String todaySection = todaySection();
                 StringBuilder acc = new StringBuilder();
-                llm.chatStream(Prompts.ANSWER,"【数据库内容】\n" + context + "\n\n【用户问题】\n" + input,delta -> {acc.append(delta);onDelta.accept(delta);});
+                llm.chatStream(Prompts.ANSWER,"【数据库内容】\n" + context
+                        + "\n\n【今天(" + LocalDate.now() + " " + weekdayLabel + ")的课程，已应用临时变动】\n" + todaySection
+                        + "\n\n【用户问题】\n" + input,delta -> {acc.append(delta);onDelta.accept(delta);});
                 String reply = acc.toString();
                 repo.insertMessage("assistant", reply);
                 return reply;
@@ -98,14 +105,26 @@ public class AssistantService {
             try {
                 String json = llm.chatJson(Prompts.extract(), input);
                 ExtractedItem item = ExtractedItem.fromJson(json);
-                lastErrors = item.validate();
-                if (lastErrors.isEmpty()) {
-                    long id = repo.insert(item, messageId);
-                    lastInsertedId = id;
-                    lastInsertedType = item.type();
-                    String reply = ack(item);
-                    repo.insertMessage("assistant", reply);
-                    return reply;
+                if ("course_override".equals(item.type())) {
+                    ExtractedOverride ov = ExtractedOverride.fromJson(json);
+                    lastErrors = ov.validate();
+                    if (lastErrors.isEmpty()) {
+                        long id = repo.insertOverrideByTitle(ov.courseTitle(), LocalDate.parse(ov.overrideDate()), ov.kind(),
+                                ov.newStartTime(), ov.newEndTime(), ov.newLocation(), ov.note(), messageId);
+                        String reply = "✅ 已记录变动：" + ov.courseTitle() + " " + ov.overrideDate() + " " + ("cancel".equals(ov.kind()) ? "停课" : "调课");
+                        repo.insertMessage("assistant", reply);
+                        return reply;
+                    }
+                } else {
+                    lastErrors = item.validate();
+                    if (lastErrors.isEmpty()) {
+                        long id = repo.insert(item, messageId);
+                        lastInsertedId = id;
+                        lastInsertedType = item.type();
+                        String reply = ack(item);
+                        repo.insertMessage("assistant", reply);
+                        return reply;
+                    }
                 }
             } catch (Exception e) {
                 lastErrors = List.of(e.getMessage());
@@ -137,7 +156,11 @@ public class AssistantService {
         } catch (JsonProcessingException e) {
             throw new RuntimeException("序列化失败: " + e.getMessage(), e);
         }
-        String reply = llm.chat(Prompts.ANSWER, "【数据库内容】\n" + context + "\n\n【用户问题】\n" + input);
+        String weekdayLabel = "周" + "一二三四五六日".charAt(LocalDate.now().getDayOfWeek().getValue() - 1);
+        String todaySection = todaySection();
+        String reply = llm.chat(Prompts.ANSWER, "【数据库内容】\n" + context
+                + "\n\n【今天(" + LocalDate.now() + " " + weekdayLabel + ")的课程，已应用临时变动】\n" + todaySection
+                + "\n\n【用户问题】\n" + input);
         try {
             repo.insertMessage("assistant", reply);
         } catch (SQLException e) {
@@ -170,7 +193,8 @@ public class AssistantService {
                     pick(corr.dueDate(), cur.dueDate()),
                     pick(corr.dueTime(), cur.dueTime()),
                       pick(corr.startTime(), cur.startTime()),
-                      pick(corr.endTime(), cur.endTime()));
+                      pick(corr.endTime(), cur.endTime()),
+                      corr.weekday(), corr.weeks());
             List<String> errors = merged.validate();
             if (!errors.isEmpty()) {
                 String reply = "纠正失败：" + String.join("；", errors);
@@ -218,4 +242,17 @@ public class AssistantService {
             default -> "记录";
         };
     }
+
+    private String todaySection() {
+        try {
+            List<CourseOccurrence> todayCourses = repo.coursesOn(LocalDate.now());
+            if (todayCourses.isEmpty()) return "（今天没有安排课程）";
+            return MAPPER.writeValueAsString(todayCourses.stream().map(CourseOccurrence::toMap).toList());
+        } catch (SQLException e) {
+            throw new RuntimeException("查询今日课程失败: " + e.getMessage(), e);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("序列化今日课程失败: " + e.getMessage(), e);
+        }
+    }
+
 }

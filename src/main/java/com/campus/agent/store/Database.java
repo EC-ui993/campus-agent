@@ -29,6 +29,15 @@ public class Database implements AutoCloseable {
                     st.execute(sql);
                 }
             }
+            for (String sql : MIGRATIONS) {
+                try {
+                    st.execute(sql);
+                } catch (SQLException e) {
+                    if (!e.getMessage().toLowerCase().contains("duplicate column")) {
+                        throw e;
+                    }
+                }
+            }
         }
     }
 
@@ -40,6 +49,13 @@ public class Database implements AutoCloseable {
     public void close() throws SQLException {
         conn.close();
     }
+
+    private static final String[] MIGRATIONS = {
+            "ALTER TABLE courses ADD COLUMN start_time TEXT",
+            "ALTER TABLE courses ADD COLUMN end_time TEXT",
+            "ALTER TABLE courses ADD COLUMN weekday INTEGER",
+            "ALTER TABLE courses ADD COLUMN weeks TEXT"
+    };
 
     private static final String SCHEMA = """
             CREATE TABLE IF NOT EXISTS assignments(
@@ -79,6 +95,8 @@ public class Database implements AutoCloseable {
               title TEXT NOT NULL,
               teacher TEXT,
               location TEXT,
+                weekday INTEGER,
+                weeks TEXT,
                 start_time TEXT,
                 end_time TEXT,
               source_message_id INTEGER,
@@ -103,5 +121,17 @@ public class Database implements AutoCloseable {
               content TEXT NOT NULL,
               reason TEXT,
               created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+              CREATE TABLE IF NOT EXISTS course_overrides(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                course_id INTEGER,
+                course_title TEXT,
+                override_date TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                new_start_time TEXT,
+                new_end_time TEXT,
+                new_location TEXT,
+                note TEXT,
+                source_message_id INTEGER,
+                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
             """;
 }

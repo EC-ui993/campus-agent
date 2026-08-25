@@ -21,8 +21,8 @@ public final class Prompts {
     private static final String EXTRACT_TEMPLATE = """
             你是校园助手的信息抽取器。从用户消息中抽取结构化信息，只输出 JSON，不要输出其他内容。
             JSON 字段：
-            - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / event(日程活动)。
-              不属于前四类的零散信息一律归为 todo。
+            - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / event(日程活动)。
+              停课、调课、换教室这类“某门课某天的变动”归为 course_override；每周固定的课程安排归为 course。
             - title: 必填，一句话简短标题
             - course: 课程名（与某门课相关才填，没有留空）
             - teacher: 老师姓名（没有留空）
@@ -32,6 +32,13 @@ public final class Prompts {
             - dueTime: 时间，格式 HH:mm（没有留空）
               - startTime: 课程/日程开始时间，格式 HH:mm（没有则留空）
               - endTime: 课程/日程结束时间，格式 HH:mm（没有则留空）
+              - weekday: 整数 1=周一…7=周日（仅 course 用，没有留空）
+              - weeks: 周次范围如 "1-16"（仅 course 用，没有留空）
+              - courseTitle: 被变动的课程名（仅 course_override 用）
+              - overrideDate: 变动生效的日期 yyyy-MM-dd（仅 course_override 用）
+              - kind: cancel(停课) 或 move(调时间/换地点)（仅 course_override 用）
+              - newStartTime/newEndTime/newLocation: 变动后的新时间地点（仅 move 用）
+              - note: 变动备注（没有留空）
             今天是 {today}。
             """;
 

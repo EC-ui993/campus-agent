@@ -58,4 +58,25 @@ class ExtractedItemTest {
     void rejectsMalformedJson() {
         assertThrows(RuntimeException.class, () -> ExtractedItem.fromJson("这不是JSON"));
     }
+
+    @Test
+    void acceptsValidWeekday() {
+        ExtractedItem item = ExtractedItem.fromJson(
+                "{\"type\":\"course\",\"title\":\"高数\",\"weekday\":1}");
+        assertTrue(item.validate().isEmpty());
+    }
+
+    @Test
+    void rejectsInvalidWeekday() {
+        ExtractedItem item = ExtractedItem.fromJson(
+                "{\"type\":\"course\",\"title\":\"高数\",\"weekday\":8}");
+        List<String> errors = item.validate();
+        assertTrue(errors.stream().anyMatch(e -> e.contains("weekday")), "应报 weekday 错误，实际: " + errors);
+    }
+
+    @Test
+    void courseOverrideTypeIsValid() {
+        assertTrue(ExtractedItem.VALID_TYPES.contains("course_override"));
+    }
+
 }

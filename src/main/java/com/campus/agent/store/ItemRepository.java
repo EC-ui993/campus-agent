@@ -7,6 +7,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +34,7 @@ public class ItemRepository {
             case "todo" ->
                     "INSERT INTO todos(title,content,due_date,due_time,source_message_id) VALUES(?,?,?,?,?)";
             case "course" ->
-                    "INSERT INTO courses(title,teacher,location,start_time,end_time,source_message_id) VALUES(?,?,?,?,?,?)";
+                    "INSERT INTO courses(title,teacher,location,weekday,weeks,start_time,end_time,source_message_id) VALUES(?,?,?,?,?,?,?,?)";
             case "event" ->
                     "INSERT INTO events(title,content,location,due_date,due_time,source_message_id) VALUES(?,?,?,?,?,?)";
             default -> throw new IllegalArgumentException("未知类型: " + item.type());
@@ -43,7 +46,7 @@ public class ItemRepository {
                 case "exam" -> setParams(ps, item.title(), item.course(), item.teacher(),
                         item.content(), item.location(), item.dueDate(), item.dueTime(), sourceMessageId);
                 case "todo" -> setParams(ps, item.title(), item.content(), item.dueDate(), item.dueTime(), sourceMessageId);
-                case "course" -> setParams(ps, item.title(), item.teacher(), item.location(), item.startTime(), item.endTime(), sourceMessageId);
+                case "course" -> setParams(ps, item.title(), item.teacher(), item.location(), item.weekday(), item.weeks(), item.startTime(), item.endTime(), sourceMessageId);
                 case "event" -> setParams(ps, item.title(), item.content(), item.location(),
                         item.dueDate(), item.dueTime(), sourceMessageId);
                 default -> throw new IllegalArgumentException("未知类型: " + item.type());
@@ -66,7 +69,7 @@ public class ItemRepository {
             case "todo" ->
                     "UPDATE todos SET title=?,content=?,due_date=?,due_time=? WHERE id=?";
             case "course" ->
-                    "UPDATE courses SET title=?,teacher=?,location=?,start_time=?,end_time=? WHERE id=?";
+                    "UPDATE courses SET title=?,teacher=?,location=?,weekday=?,weeks=?,start_time=?,end_time=? WHERE id=?";
             case "event" ->
                     "UPDATE events SET title=?,content=?,location=?,due_date=?,due_time=? WHERE id=?";
             default -> throw new IllegalArgumentException("未知类型: " + item.type());
@@ -78,7 +81,7 @@ public class ItemRepository {
                 case "exam" -> setParams(ps, item.title(), item.course(), item.teacher(),
                         item.content(), item.location(), item.dueDate(), item.dueTime(), id);
                 case "todo" -> setParams(ps, item.title(), item.content(), item.dueDate(), item.dueTime(), id);
-                case "course" -> setParams(ps, item.title(), item.teacher(), item.location(), item.startTime(), item.endTime(), id);
+                case "course" -> setParams(ps, item.title(), item.teacher(), item.location(), item.weekday(), item.weeks(), item.startTime(), item.endTime(), id);
                 case "event" -> setParams(ps, item.title(), item.content(), item.location(),
                         item.dueDate(), item.dueTime(), id);
                 default -> throw new IllegalArgumentException("未知类型: " + item.type());
@@ -117,6 +120,82 @@ public class ItemRepository {
         }
         return Optional.empty();
     }
+
+    /** 按课程名登记某天的临时变动；课程名找不到时 course_id 为 null（变动被 coursesOn 忽略）。 */
+    public long insertOverrideByTitle(String courseTitle, LocalDate date, String kind,
+                                      String newStart, String newEnd, String newLocation,
+                                      String note, long sourceMessageId) throws SQLException {
+        Long courseId = null;
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "SELECT id FROM courses WHERE title=? LIMIT 1")) {
+            ps.setString(1, courseTitle);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) courseId = rs.getLong("id");
+            }
+        }
+        try (PreparedStatement ps = db.conn().prepareStatement(
+                "INSERT INTO course_overrides(course_id,course_title,override_date,kind,"
+                        + "new_start_time,new_end_time,new_location,note,source_message_id) "
+                        + "VALUES(?,?,?,?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
+            if (courseId != null) ps.setLong(1, courseId); else ps.setObject(1, null);
+            ps.setString(2, courseTitle);
+            ps.setString(3, date.toString());
+            ps.setString(4, kind);
+            ps.setString(5, newStart);
+            ps.setString(6, newEnd);
+            ps.setString(7, newLocation);
+            ps.setString(8, note);
+            ps.setLong(9, sourceMessageId);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                return keys.getLong(1);
+            }
+        }
+    }
+
+    /** 某天的有效课程：默认课程（按 weekday）叠加当日变动。 */
+    public List<CourseOccurrence> coursesOn(LocalDate date) throws SQLException {
+        int weekday = date.getDayOfWeek().getValue();
+        Map<Long, CourseOccurrence> byId = new LinkedHashMap<>();
+        String courseSql = "SELECT id,title,teacher,location,start_time,end_time FROM courses WHERE weekday=? ORDER BY start_time";
+        try (PreparedStatement ps = db.conn().prepareStatement(courseSql)) {
+            ps.setInt(1, weekday);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    byId.put(rs.getLong("id"), new CourseOccurrence(rs.getLong("id"), rs.getString("title"),
+                            rs.getString("teacher"), rs.getString("location"),
+                            rs.getString("start_time"), rs.getString("end_time"), null));
+                }
+            }
+        }
+        String ovSql = "SELECT course_id,kind,new_start_time,new_end_time,new_location,note FROM course_overrides WHERE override_date=?";
+        try (PreparedStatement ps = db.conn().prepareStatement(ovSql)) {
+            ps.setString(1, date.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    long cid = rs.getLong("course_id");
+                    CourseOccurrence base = byId.get(cid);
+                    if (base == null) continue;   // 没匹配到课程的变动忽略
+                    if ("cancel".equals(rs.getString("kind"))) {
+                        byId.remove(cid);
+                    } else {
+                        byId.put(cid, new CourseOccurrence(cid, base.title(), base.teacher(),
+                                pick(rs.getString("new_location"), base.location()),
+                                pick(rs.getString("new_start_time"), base.startTime()),
+                                pick(rs.getString("new_end_time"), base.endTime()),
+                                rs.getString("note")));
+                    }
+                }
+            }
+        }
+        return List.copyOf(byId.values());
+    }
+
+    private String pick(String newVal, String oldVal) {
+        return (newVal != null && !newVal.isBlank()) ? newVal : oldVal;
+    }
+
 
     public long insertMessage(String role, String content) throws SQLException {
         try (PreparedStatement ps = db.conn().prepareStatement(
@@ -167,6 +246,8 @@ public class ItemRepository {
                 ps.setObject(i + 1, null);
             } else if (params[i] instanceof Long l) {
                 ps.setLong(i + 1, l);
+            } else if (params[i] instanceof Integer in) {
+                ps.setInt(i + 1, in);
             } else {
                 ps.setString(i + 1, params[i].toString());
             }

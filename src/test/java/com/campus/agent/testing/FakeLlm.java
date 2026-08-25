@@ -11,6 +11,7 @@ public class FakeLlm implements LlmClient {
     private final Deque<String> jsonResponses = new ArrayDeque<>();
     private final Deque<String> chatResponses = new ArrayDeque<>();
     private final Deque<String> streamChunks = new ArrayDeque<>();
+    public String lastUserPrompt;
 
     public FakeLlm streamChunks(String... chunks){
         for(String c : chunks) streamChunks.add(c);
@@ -29,11 +30,13 @@ public class FakeLlm implements LlmClient {
 
     @Override
     public String chat(String systemPrompt, String userPrompt) {
+        lastUserPrompt = userPrompt;
         return chatResponses.isEmpty() ? "" : chatResponses.poll();
     }
 
     @Override
     public String chatJson(String systemPrompt, String userPrompt) {
+        lastUserPrompt = userPrompt;
         return jsonResponses.isEmpty() ? "{}" : jsonResponses.poll();
     }
 

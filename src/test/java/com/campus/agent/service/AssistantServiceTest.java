@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -115,4 +116,22 @@ class AssistantServiceTest {
             assertEquals("今天没有课。", received.toString());
         }
     }
+
+    @Test
+    void todayCourseIncludedInQuestionPrompt(@TempDir Path tmp) throws Exception {
+        int today = LocalDate.now().getDayOfWeek().getValue();
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"question\"}")
+                .chat("有");
+        try (Database db = new Database(tmp.resolve("today.db"))) {
+            ItemRepository repo = new ItemRepository(db);
+            repo.insert(new ExtractedItem("course", "高数", null, "王老师", null, "A201", null, null,
+                    "08:00", "09:40", today, null), 1);
+            AssistantService service = new AssistantService(llm, repo, db);
+            service.handle("今天有什么课？");
+            assertTrue(llm.lastUserPrompt.contains("今天("), "应包含今天课程段: " + llm.lastUserPrompt);
+            assertTrue(llm.lastUserPrompt.contains("高数"), "应包含课程名: " + llm.lastUserPrompt);
+        }
+    }
+
 }
