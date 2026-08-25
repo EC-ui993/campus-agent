@@ -25,6 +25,13 @@
   <button id="send">发送</button>
 </footer>
 <script>
+  const TOKEN_KEY = "campus-agent-token";
+  let token = localStorage.getItem(TOKEN_KEY);
+  if(!token){
+    token = prompt("请输入口令：");
+    if(token) localStorage.setItem(TOKEN_KEY, token);
+  }
+
   const messages = document.getElementById("messages");
   const input = document.getElementById("input");
   const sendBtn = document.getElementById("send");
@@ -48,9 +55,14 @@
     try {
       const resp = await fetch("/api/chat/stream", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Access-Token": token },
         body: JSON.stringify({ message: text })
       });
+      if(resp.status == 401){
+        localStorage.removeItem(TOKEN_KEY);
+        bubble.textContent = "口令错误，请重新输入";
+        return;
+      }
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";

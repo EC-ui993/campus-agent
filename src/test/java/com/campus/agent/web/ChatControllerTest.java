@@ -54,6 +54,7 @@ class ChatControllerTest {
     @Test
     void recordMessageReturnsAck() throws Exception {
         mvc.perform(post("/api/chat")
+                        .header("X-Access-Token", "change-me-please")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"高数作业习题5.2，11月20日前交\"}"))
                 .andExpect(status().isOk())
