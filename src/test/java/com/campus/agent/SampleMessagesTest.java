@@ -3,19 +3,64 @@ package com.campus.agent;
 import com.campus.agent.service.AssistantService;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
+import com.campus.agent.store.mapper.AssignmentMapper;
+import com.campus.agent.store.mapper.CourseMapper;
+import com.campus.agent.store.mapper.CourseOverrideMapper;
+import com.campus.agent.store.mapper.EventMapper;
+import com.campus.agent.store.mapper.ExamMapper;
+import com.campus.agent.store.mapper.TodoMapper;
 import com.campus.agent.testing.FakeLlm;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /** 10 条典型老师消息走完整流水线（用假 LLM 驱动），保证改代码后管道不退化。 */
+@SpringBootTest
 class SampleMessagesTest {
 
+    private static Path dbPath;
+
+    @DynamicPropertySource
+    static void props(DynamicPropertyRegistry registry) throws Exception {
+        dbPath = Files.createTempFile("agent-samples-test", ".db");
+        Files.deleteIfExists(dbPath);
+        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + dbPath);
+    }
+
+    @Autowired
+    ItemRepository repo;
+
+    @Autowired
+    Database db;
+
     // 每条 = {用户消息, 抽取结果JSON}
+
+    @Autowired AssignmentMapper assignmentMapper;
+    @Autowired ExamMapper examMapper;
+    @Autowired TodoMapper todoMapper;
+    @Autowired CourseMapper courseMapper;
+    @Autowired EventMapper eventMapper;
+    @Autowired CourseOverrideMapper courseOverrideMapper;
+
+    @BeforeEach
+    void cleanDb() {
+        courseOverrideMapper.delete(null);
+        assignmentMapper.delete(null);
+        examMapper.delete(null);
+        todoMapper.delete(null);
+        courseMapper.delete(null);
+        eventMapper.delete(null);
+    }
+
     private static final String[][] SAMPLES = {
             {"老师通知：下周一（11月24日）下午两点在A201开会",
                     "{\"type\":\"event\",\"title\":\"老师会议\",\"course\":\"\",\"teacher\":\"\",\"content\":\"老师通知开会\",\"location\":\"A201\",\"dueDate\":\"2026-11-24\",\"dueTime\":\"14:00\"}"},
@@ -40,20 +85,17 @@ class SampleMessagesTest {
     };
 
     @Test
-    void allTenSamplesFlowThroughPipeline(@TempDir Path tmp) throws Exception {
+    void allTenSamplesFlowThroughPipeline() throws Exception {
         FakeLlm llm = new FakeLlm();
         for (String[] sample : SAMPLES) {
             llm.json("{\"intent\":\"record\"}").json(sample[1]);
         }
-        try (Database db = new Database(tmp.resolve("samples.db"))) {
-            ItemRepository repo = new ItemRepository(db);
-            AssistantService service = new AssistantService(llm, repo, db);
-            for (String[] sample : SAMPLES) {
-                String reply = service.handle(sample[0]);
-                assertTrue(reply.startsWith("✅"), "样例应成功入库，实际回复: " + reply);
-            }
-            List<?> all = repo.allItems();
-            assertEquals(10, all.size(), "10 条样例都应入库");
+        AssistantService service = new AssistantService(llm, repo, db);
+        for (String[] sample : SAMPLES) {
+            String reply = service.handle(sample[0]);
+            assertTrue(reply.startsWith("✅"), "样例应成功入库，实际回复: " + reply);
         }
+        List<?> all = repo.allItems();
+        assertEquals(10, all.size(), "10 条样例都应入库");
     }
 }

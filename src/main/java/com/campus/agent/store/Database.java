@@ -1,6 +1,7 @@
 package com.campus.agent.store;
 
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -24,7 +25,13 @@ public class Database implements AutoCloseable {
         try (Statement st = conn.createStatement()) {
             st.execute("PRAGMA journal_mode=WAL;");
             st.execute("PRAGMA busy_timeout=5000;");
-            for (String sql : SCHEMA.split(";")) {
+            String schema;
+            try (var in = Database.class.getResourceAsStream("/schema.sql")) {
+                schema = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                throw new SQLException("读取 schema.sql 失败: " + e.getMessage(), e);
+            }
+            for (String sql : schema.split(";")) {
                 if (!sql.isBlank()) {
                     st.execute(sql);
                 }

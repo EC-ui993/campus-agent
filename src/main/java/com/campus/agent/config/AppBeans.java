@@ -5,6 +5,13 @@ import com.campus.agent.llm.LlmClient;
 import com.campus.agent.service.AssistantService;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
+import com.campus.agent.store.mapper.AssignmentMapper;
+import com.campus.agent.store.mapper.CourseMapper;
+import com.campus.agent.store.mapper.CourseOverrideMapper;
+import com.campus.agent.store.mapper.EventMapper;
+import com.campus.agent.store.mapper.ExamMapper;
+import com.campus.agent.store.mapper.TodoMapper;
+import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,8 +27,12 @@ public class AppBeans {
     }
 
     @Bean
-    public ItemRepository itemRepository(Database db) {
-        return new ItemRepository(db);
+    public ItemRepository itemRepository(AssignmentMapper assignmentMapper, ExamMapper examMapper,
+                                         TodoMapper todoMapper, CourseMapper courseMapper,
+                                         EventMapper eventMapper, CourseOverrideMapper courseOverrideMapper,
+                                         DataSource dataSource) {
+        return new ItemRepository(assignmentMapper, examMapper, todoMapper, courseMapper,
+                eventMapper, courseOverrideMapper, dataSource);
     }
 
     @Bean

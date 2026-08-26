@@ -1,192 +1,289 @@
 package com.campus.agent.store;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.campus.agent.model.ExtractedItem;
+import com.campus.agent.store.entity.Assignment;
+import com.campus.agent.store.entity.Course;
+import com.campus.agent.store.entity.CourseOverride;
+import com.campus.agent.store.entity.Event;
+import com.campus.agent.store.entity.Exam;
+import com.campus.agent.store.entity.Todo;
+import com.campus.agent.store.mapper.AssignmentMapper;
+import com.campus.agent.store.mapper.CourseMapper;
+import com.campus.agent.store.mapper.CourseOverrideMapper;
+import com.campus.agent.store.mapper.EventMapper;
+import com.campus.agent.store.mapper.ExamMapper;
+import com.campus.agent.store.mapper.TodoMapper;
+import org.springframework.stereotype.Repository;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-/** 所有数据库读写。裸 JDBC + PreparedStatement（防 SQL 注入，面试常考）。 */
+/** 所有数据库读写。MyBatis-Plus 管业务表，JDBC 管杂表（messages/raw_inbox）。 */
+@Repository
 public class ItemRepository {
 
-    private final Database db;
+    private final AssignmentMapper assignmentMapper;
+    private final ExamMapper examMapper;
+    private final TodoMapper todoMapper;
+    private final CourseMapper courseMapper;
+    private final EventMapper eventMapper;
+    private final CourseOverrideMapper courseOverrideMapper;
+    private final DataSource dataSource;
 
-    public ItemRepository(Database db) {
-        this.db = db;
+    public ItemRepository(AssignmentMapper assignmentMapper, ExamMapper examMapper, TodoMapper todoMapper,
+                          CourseMapper courseMapper, EventMapper eventMapper,
+                          CourseOverrideMapper courseOverrideMapper, DataSource dataSource) {
+        this.assignmentMapper = assignmentMapper;
+        this.examMapper = examMapper;
+        this.todoMapper = todoMapper;
+        this.courseMapper = courseMapper;
+        this.eventMapper = eventMapper;
+        this.courseOverrideMapper = courseOverrideMapper;
+        this.dataSource = dataSource;
     }
 
-    /** 按类型写入对应表，返回自增 id。 */
-    public long insert(ExtractedItem item, long sourceMessageId) throws SQLException {
-        Connection c = db.conn();
-        String sql = switch (item.type()) {
-            case "assignment" ->
-                    "INSERT INTO assignments(title,course,teacher,content,due_date,due_time,source_message_id) VALUES(?,?,?,?,?,?,?)";
-            case "exam" ->
-                    "INSERT INTO exams(title,course,teacher,content,location,due_date,due_time,source_message_id) VALUES(?,?,?,?,?,?,?,?)";
-            case "todo" ->
-                    "INSERT INTO todos(title,content,due_date,due_time,source_message_id) VALUES(?,?,?,?,?)";
-            case "course" ->
-                    "INSERT INTO courses(title,teacher,location,weekday,weeks,start_time,end_time,source_message_id) VALUES(?,?,?,?,?,?,?,?)";
-            case "event" ->
-                    "INSERT INTO events(title,content,location,due_date,due_time,source_message_id) VALUES(?,?,?,?,?,?)";
+    public long insert(ExtractedItem item, long sourceMessageId) {
+        switch (item.type()) {
+            case "assignment" -> {
+                Assignment e = new Assignment();
+                e.setTitle(item.title());
+                e.setCourse(item.course());
+                e.setTeacher(item.teacher());
+                e.setContent(item.content());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                e.setStatus("pending");
+                e.setSourceMessageId(sourceMessageId);
+                assignmentMapper.insert(e);
+                return e.getId();
+            }
+            case "exam" -> {
+                Exam e = new Exam();
+                e.setTitle(item.title());
+                e.setCourse(item.course());
+                e.setTeacher(item.teacher());
+                e.setContent(item.content());
+                e.setLocation(item.location());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                e.setStatus("upcoming");
+                e.setSourceMessageId(sourceMessageId);
+                examMapper.insert(e);
+                return e.getId();
+            }
+            case "todo" -> {
+                Todo e = new Todo();
+                e.setTitle(item.title());
+                e.setContent(item.content());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                e.setStatus("pending");
+                e.setSourceMessageId(sourceMessageId);
+                todoMapper.insert(e);
+                return e.getId();
+            }
+            case "course" -> {
+                Course e = new Course();
+                e.setTitle(item.title());
+                e.setTeacher(item.teacher());
+                e.setLocation(item.location());
+                e.setWeekday(item.weekday());
+                e.setWeeks(item.weeks());
+                e.setStartTime(item.startTime());
+                e.setEndTime(item.endTime());
+                e.setSourceMessageId(sourceMessageId);
+                courseMapper.insert(e);
+                return e.getId();
+            }
+            case "event" -> {
+                Event e = new Event();
+                e.setTitle(item.title());
+                e.setContent(item.content());
+                e.setLocation(item.location());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                e.setStatus("upcoming");
+                e.setSourceMessageId(sourceMessageId);
+                eventMapper.insert(e);
+                return e.getId();
+            }
             default -> throw new IllegalArgumentException("未知类型: " + item.type());
-        };
-        try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            switch (item.type()) {
-                case "assignment" -> setParams(ps, item.title(), item.course(), item.teacher(),
-                        item.content(), item.dueDate(), item.dueTime(), sourceMessageId);
-                case "exam" -> setParams(ps, item.title(), item.course(), item.teacher(),
-                        item.content(), item.location(), item.dueDate(), item.dueTime(), sourceMessageId);
-                case "todo" -> setParams(ps, item.title(), item.content(), item.dueDate(), item.dueTime(), sourceMessageId);
-                case "course" -> setParams(ps, item.title(), item.teacher(), item.location(), item.weekday(), item.weeks(), item.startTime(), item.endTime(), sourceMessageId);
-                case "event" -> setParams(ps, item.title(), item.content(), item.location(),
-                        item.dueDate(), item.dueTime(), sourceMessageId);
-                default -> throw new IllegalArgumentException("未知类型: " + item.type());
-            }
-            ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                keys.next();
-                return keys.getLong(1);
-            }
         }
     }
 
-    /** 按 id 更新记录（全字段覆盖，由调用方保证已合并好）。 */
-    public boolean updateById(ExtractedItem item, long id) throws SQLException {
-        String sql = switch (item.type()) {
-            case "assignment" ->
-                    "UPDATE assignments SET title=?,course=?,teacher=?,content=?,due_date=?,due_time=? WHERE id=?";
-            case "exam" ->
-                    "UPDATE exams SET title=?,course=?,teacher=?,content=?,location=?,due_date=?,due_time=? WHERE id=?";
-            case "todo" ->
-                    "UPDATE todos SET title=?,content=?,due_date=?,due_time=? WHERE id=?";
-            case "course" ->
-                    "UPDATE courses SET title=?,teacher=?,location=?,weekday=?,weeks=?,start_time=?,end_time=? WHERE id=?";
-            case "event" ->
-                    "UPDATE events SET title=?,content=?,location=?,due_date=?,due_time=? WHERE id=?";
-            default -> throw new IllegalArgumentException("未知类型: " + item.type());
-        };
-        try (PreparedStatement ps = db.conn().prepareStatement(sql)) {
-            switch (item.type()) {
-                case "assignment" -> setParams(ps, item.title(), item.course(), item.teacher(),
-                        item.content(), item.dueDate(), item.dueTime(), id);
-                case "exam" -> setParams(ps, item.title(), item.course(), item.teacher(),
-                        item.content(), item.location(), item.dueDate(), item.dueTime(), id);
-                case "todo" -> setParams(ps, item.title(), item.content(), item.dueDate(), item.dueTime(), id);
-                case "course" -> setParams(ps, item.title(), item.teacher(), item.location(), item.weekday(), item.weeks(), item.startTime(), item.endTime(), id);
-                case "event" -> setParams(ps, item.title(), item.content(), item.location(),
-                        item.dueDate(), item.dueTime(), id);
-                default -> throw new IllegalArgumentException("未知类型: " + item.type());
+    public boolean updateById(ExtractedItem item, long id) {
+        switch (item.type()) {
+            case "assignment" -> {
+                Assignment e = new Assignment();
+                e.setId(id);
+                e.setTitle(item.title());
+                e.setCourse(item.course());
+                e.setTeacher(item.teacher());
+                e.setContent(item.content());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                return assignmentMapper.updateById(e) == 1;
             }
-            return ps.executeUpdate() == 1;
+            case "exam" -> {
+                Exam e = new Exam();
+                e.setId(id);
+                e.setTitle(item.title());
+                e.setCourse(item.course());
+                e.setTeacher(item.teacher());
+                e.setContent(item.content());
+                e.setLocation(item.location());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                return examMapper.updateById(e) == 1;
+            }
+            case "todo" -> {
+                Todo e = new Todo();
+                e.setId(id);
+                e.setTitle(item.title());
+                e.setContent(item.content());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                return todoMapper.updateById(e) == 1;
+            }
+            case "course" -> {
+                Course e = new Course();
+                e.setId(id);
+                e.setTitle(item.title());
+                e.setTeacher(item.teacher());
+                e.setLocation(item.location());
+                e.setWeekday(item.weekday());
+                e.setWeeks(item.weeks());
+                e.setStartTime(item.startTime());
+                e.setEndTime(item.endTime());
+                return courseMapper.updateById(e) == 1;
+            }
+            case "event" -> {
+                Event e = new Event();
+                e.setId(id);
+                e.setTitle(item.title());
+                e.setContent(item.content());
+                e.setLocation(item.location());
+                e.setDueDate(item.dueDate());
+                e.setDueTime(item.dueTime());
+                return eventMapper.updateById(e) == 1;
+            }
+            default -> throw new IllegalArgumentException("未知类型: " + item.type());
         }
     }
 
-    /** 读取全部业务记录，按 作业→考试→待办→课程→日程 顺序。 */
-    public List<StoredItem> allItems() throws SQLException {
+    public List<StoredItem> allItems() {
         List<StoredItem> list = new ArrayList<>();
-        queryInto(list, "assignment", "SELECT id,'assignment' AS type,title,course,teacher,content,NULL AS location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM assignments ORDER BY id");
-        queryInto(list, "exam", "SELECT id,'exam' AS type,title,course,teacher,content,location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM exams ORDER BY id");
-        queryInto(list, "todo", "SELECT id,'todo' AS type,title,NULL AS course,NULL AS teacher,content,NULL AS location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM todos ORDER BY id");
-        queryInto(list, "course", "SELECT id,'course' AS type,title,NULL AS course,NULL AS teacher,NULL AS content,location,NULL AS due_date,NULL AS due_time,start_time,end_time,'active' AS status FROM courses ORDER BY id");
-        queryInto(list, "event", "SELECT id,'event' AS type,title,NULL AS course,NULL AS teacher,content,location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM events ORDER BY id");
+        for (Assignment e : assignmentMapper.selectList(null)) {
+            list.add(new StoredItem(e.getId(), "assignment", e.getTitle(), e.getCourse(), e.getTeacher(),
+                    e.getContent(), null, e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
+        }
+        for (Exam e : examMapper.selectList(null)) {
+            list.add(new StoredItem(e.getId(), "exam", e.getTitle(), e.getCourse(), e.getTeacher(),
+                    e.getContent(), e.getLocation(), e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
+        }
+        for (Todo e : todoMapper.selectList(null)) {
+            list.add(new StoredItem(e.getId(), "todo", e.getTitle(), null, null,
+                    e.getContent(), null, e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
+        }
+        for (Course e : courseMapper.selectList(null)) {
+            list.add(new StoredItem(e.getId(), "course", e.getTitle(), null, e.getTeacher(),
+                    null, e.getLocation(), null, null, e.getStartTime(), e.getEndTime(), "active"));
+        }
+        for (Event e : eventMapper.selectList(null)) {
+            list.add(new StoredItem(e.getId(), "event", e.getTitle(), null, null,
+                    e.getContent(), e.getLocation(), e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
+        }
         return list;
     }
 
-    public Optional<StoredItem> getById(String type, long id) throws SQLException {
-        String sql = switch (type) {
-            case "assignment" -> "SELECT id,'assignment' AS type,title,course,teacher,content,NULL AS location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM assignments WHERE id=?";
-            case "exam" -> "SELECT id,'exam' AS type,title,course,teacher,content,location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM exams WHERE id=?";
-            case "todo" -> "SELECT id,'todo' AS type,title,NULL AS course,NULL AS teacher,content,NULL AS location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM todos WHERE id=?";
-            case "course" -> "SELECT id,'course' AS type,title,NULL AS course,NULL AS teacher,NULL AS content,location,NULL AS due_date,NULL AS due_time,start_time,end_time,'active' AS status FROM courses WHERE id=?";
-            case "event" -> "SELECT id,'event' AS type,title,NULL AS course,NULL AS teacher,content,location,due_date,due_time,NULL AS start_time,NULL AS end_time,status FROM events WHERE id=?";
-            default -> throw new IllegalArgumentException("未知类型: " + type);
-        };
-        try (PreparedStatement ps = db.conn().prepareStatement(sql)) {
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return Optional.of(map(rs));
-                }
+    public Optional<StoredItem> getById(String type, long id) {
+        switch (type) {
+            case "assignment" -> {
+                Assignment e = assignmentMapper.selectById(id);
+                if (e == null) return Optional.empty();
+                return Optional.of(new StoredItem(e.getId(), "assignment", e.getTitle(), e.getCourse(), e.getTeacher(),
+                        e.getContent(), null, e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
             }
+            case "exam" -> {
+                Exam e = examMapper.selectById(id);
+                if (e == null) return Optional.empty();
+                return Optional.of(new StoredItem(e.getId(), "exam", e.getTitle(), e.getCourse(), e.getTeacher(),
+                        e.getContent(), e.getLocation(), e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
+            }
+            case "todo" -> {
+                Todo e = todoMapper.selectById(id);
+                if (e == null) return Optional.empty();
+                return Optional.of(new StoredItem(e.getId(), "todo", e.getTitle(), null, null,
+                        e.getContent(), null, e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
+            }
+            case "course" -> {
+                Course e = courseMapper.selectById(id);
+                if (e == null) return Optional.empty();
+                return Optional.of(new StoredItem(e.getId(), "course", e.getTitle(), null, e.getTeacher(),
+                        null, e.getLocation(), null, null, e.getStartTime(), e.getEndTime(), "active"));
+            }
+            case "event" -> {
+                Event e = eventMapper.selectById(id);
+                if (e == null) return Optional.empty();
+                return Optional.of(new StoredItem(e.getId(), "event", e.getTitle(), null, null,
+                        e.getContent(), e.getLocation(), e.getDueDate(), e.getDueTime(), null, null, e.getStatus()));
+            }
+            default -> throw new IllegalArgumentException("未知类型: " + type);
         }
-        return Optional.empty();
     }
 
-    /** 按课程名登记某天的临时变动；课程名找不到时 course_id 为 null（变动被 coursesOn 忽略）。 */
     public long insertOverrideByTitle(String courseTitle, LocalDate date, String kind,
                                       String newStart, String newEnd, String newLocation,
-                                      String note, long sourceMessageId) throws SQLException {
-        Long courseId = null;
-        try (PreparedStatement ps = db.conn().prepareStatement(
-                "SELECT id FROM courses WHERE title=? LIMIT 1")) {
-            ps.setString(1, courseTitle);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) courseId = rs.getLong("id");
-            }
-        }
-        try (PreparedStatement ps = db.conn().prepareStatement(
-                "INSERT INTO course_overrides(course_id,course_title,override_date,kind,"
-                        + "new_start_time,new_end_time,new_location,note,source_message_id) "
-                        + "VALUES(?,?,?,?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
-            if (courseId != null) ps.setLong(1, courseId); else ps.setObject(1, null);
-            ps.setString(2, courseTitle);
-            ps.setString(3, date.toString());
-            ps.setString(4, kind);
-            ps.setString(5, newStart);
-            ps.setString(6, newEnd);
-            ps.setString(7, newLocation);
-            ps.setString(8, note);
-            ps.setLong(9, sourceMessageId);
-            ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                keys.next();
-                return keys.getLong(1);
-            }
-        }
+                                      String note, long sourceMessageId) {
+        Course course = courseMapper.selectOne(new QueryWrapper<Course>().eq("title", courseTitle).last("LIMIT 1"));
+        CourseOverride ov = new CourseOverride();
+        ov.setCourseId(course == null ? null : course.getId());
+        ov.setCourseTitle(courseTitle);
+        ov.setOverrideDate(date.toString());
+        ov.setKind(kind);
+        ov.setNewStartTime(newStart);
+        ov.setNewEndTime(newEnd);
+        ov.setNewLocation(newLocation);
+        ov.setNote(note);
+        ov.setSourceMessageId(sourceMessageId);
+        courseOverrideMapper.insert(ov);
+        return ov.getId();
     }
 
-    /** 某天的有效课程：默认课程（按 weekday）叠加当日变动。 */
-    public List<CourseOccurrence> coursesOn(LocalDate date) throws SQLException {
+    public List<CourseOccurrence> coursesOn(LocalDate date) {
         int weekday = date.getDayOfWeek().getValue();
         Map<Long, CourseOccurrence> byId = new LinkedHashMap<>();
-        String courseSql = "SELECT id,title,teacher,location,start_time,end_time FROM courses WHERE weekday=? ORDER BY start_time";
-        try (PreparedStatement ps = db.conn().prepareStatement(courseSql)) {
-            ps.setInt(1, weekday);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    byId.put(rs.getLong("id"), new CourseOccurrence(rs.getLong("id"), rs.getString("title"),
-                            rs.getString("teacher"), rs.getString("location"),
-                            rs.getString("start_time"), rs.getString("end_time"), null));
-                }
-            }
+        List<Course> courses = courseMapper.selectList(
+                new QueryWrapper<Course>().eq("weekday", weekday).orderByAsc("start_time"));
+        for (Course c : courses) {
+            byId.put(c.getId(), new CourseOccurrence(c.getId(), c.getTitle(), c.getTeacher(), c.getLocation(),
+                    c.getStartTime(), c.getEndTime(), null));
         }
-        String ovSql = "SELECT course_id,kind,new_start_time,new_end_time,new_location,note FROM course_overrides WHERE override_date=?";
-        try (PreparedStatement ps = db.conn().prepareStatement(ovSql)) {
-            ps.setString(1, date.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    long cid = rs.getLong("course_id");
-                    CourseOccurrence base = byId.get(cid);
-                    if (base == null) continue;   // 没匹配到课程的变动忽略
-                    if ("cancel".equals(rs.getString("kind"))) {
-                        byId.remove(cid);
-                    } else {
-                        byId.put(cid, new CourseOccurrence(cid, base.title(), base.teacher(),
-                                pick(rs.getString("new_location"), base.location()),
-                                pick(rs.getString("new_start_time"), base.startTime()),
-                                pick(rs.getString("new_end_time"), base.endTime()),
-                                rs.getString("note")));
-                    }
-                }
+        List<CourseOverride> overrides = courseOverrideMapper.selectList(
+                new QueryWrapper<CourseOverride>().eq("override_date", date.toString()));
+        for (CourseOverride ov : overrides) {
+            if (ov.getCourseId() == null) continue;
+            CourseOccurrence base = byId.get(ov.getCourseId());
+            if (base == null) continue;
+            if ("cancel".equals(ov.getKind())) {
+                byId.remove(ov.getCourseId());
+            } else {
+                byId.put(ov.getCourseId(), new CourseOccurrence(base.courseId(), base.title(), base.teacher(),
+                        pick(ov.getNewLocation(), base.location()),
+                        pick(ov.getNewStartTime(), base.startTime()),
+                        pick(ov.getNewEndTime(), base.endTime()),
+                        ov.getNote()));
             }
         }
         return List.copyOf(byId.values());
@@ -196,10 +293,10 @@ public class ItemRepository {
         return (newVal != null && !newVal.isBlank()) ? newVal : oldVal;
     }
 
-
     public long insertMessage(String role, String content) throws SQLException {
-        try (PreparedStatement ps = db.conn().prepareStatement(
-                "INSERT INTO messages(role, content) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT INTO messages(role, content) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, role);
             ps.setString(2, content);
             ps.executeUpdate();
@@ -211,45 +308,15 @@ public class ItemRepository {
     }
 
     public long insertRaw(String content, String reason) throws SQLException {
-        try (PreparedStatement ps = db.conn().prepareStatement(
-                "INSERT INTO raw_inbox(content, reason) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "INSERT INTO raw_inbox(content, reason) VALUES(?,?)", Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, content);
             ps.setString(2, reason);
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 keys.next();
                 return keys.getLong(1);
-            }
-        }
-    }
-
-    private void queryInto(List<StoredItem> list, String type, String sql) throws SQLException {
-        try (Statement st = db.conn().createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
-            while (rs.next()) {
-                list.add(map(rs));
-            }
-        }
-    }
-
-    private StoredItem map(ResultSet rs) throws SQLException {
-        return new StoredItem(
-                rs.getLong("id"), rs.getString("type"), rs.getString("title"),
-                rs.getString("course"), rs.getString("teacher"), rs.getString("content"),
-                rs.getString("location"), rs.getString("due_date"), rs.getString("due_time"),
-                rs.getString("start_time"), rs.getString("end_time"), rs.getString("status"));
-    }
-
-    private void setParams(PreparedStatement ps, Object... params) throws SQLException {
-        for (int i = 0; i < params.length; i++) {
-            if (params[i] == null) {
-                ps.setObject(i + 1, null);
-            } else if (params[i] instanceof Long l) {
-                ps.setLong(i + 1, l);
-            } else if (params[i] instanceof Integer in) {
-                ps.setInt(i + 1, in);
-            } else {
-                ps.setString(i + 1, params[i].toString());
             }
         }
     }

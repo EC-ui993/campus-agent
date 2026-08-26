@@ -2,6 +2,15 @@ server:
   port: 8080
   address: 0.0.0.0
 
+spring:
+  datasource:
+    url: jdbc:sqlite:data/agent.db
+    driver-class-name: org.sqlite.JDBC
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+
 app:
   api-key: ${DEEPSEEK_API_KEY:在这里填入你的key}
   model: deepseek-chat

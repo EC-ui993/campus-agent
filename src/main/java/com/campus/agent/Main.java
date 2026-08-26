@@ -1,25 +1,24 @@
 package com.campus.agent;
 
-import com.campus.agent.llm.DeepSeekClient;
-import com.campus.agent.llm.LlmClient;
 import com.campus.agent.service.AssistantService;
-import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.StoredItem;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.Scanner;
 
 /** 命令行入口。带参数运行 = 冒烟模式（每个参数当作一条消息处理完退出）；不带参数 = 交互 REPL。 */
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        AppConfig config = AppConfig.load();
-        try (Database db = new Database(Path.of(config.dbPath()))) {
-            ItemRepository repo = new ItemRepository(db);
-            LlmClient llm = new DeepSeekClient(config.apiKey(), config.model(), config.baseUrl());
-            AssistantService service = new AssistantService(llm, repo, db);
+        try (ConfigurableApplicationContext ctx = new SpringApplicationBuilder(CampusAgentApplication.class)
+                .web(WebApplicationType.NONE)
+                .run(args)) {
+            AssistantService service = ctx.getBean(AssistantService.class);
+            ItemRepository repo = ctx.getBean(ItemRepository.class);
 
             if (args.length > 0) {
                 for (String a : args) {

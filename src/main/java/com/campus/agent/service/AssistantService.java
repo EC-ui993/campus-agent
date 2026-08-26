@@ -143,12 +143,8 @@ public class AssistantService {
 
     private String answer(String input) {
         List<Map<String, Object>> rows = new ArrayList<>();
-        try {
-            for (StoredItem s : repo.allItems()) {
-                rows.add(s.toMap());
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("查询失败: " + e.getMessage(), e);
+        for (StoredItem s : repo.allItems()) {
+            rows.add(s.toMap());
         }
         String context;
         try {
@@ -248,8 +244,6 @@ public class AssistantService {
             List<CourseOccurrence> todayCourses = repo.coursesOn(LocalDate.now());
             if (todayCourses.isEmpty()) return "（今天没有安排课程）";
             return MAPPER.writeValueAsString(todayCourses.stream().map(CourseOccurrence::toMap).toList());
-        } catch (SQLException e) {
-            throw new RuntimeException("查询今日课程失败: " + e.getMessage(), e);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("序列化今日课程失败: " + e.getMessage(), e);
         }
