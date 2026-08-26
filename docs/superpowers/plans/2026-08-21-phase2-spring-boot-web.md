@@ -752,7 +752,7 @@ Run: `mvn -q -Dtest=AssistantServiceTest test` 绿；`mvn -q test` 全量绿。
   - **重复事件 + 例外**（日历软件的经典模型）：默认规则（每周重复）之上叠例外（单日生效）；例外按日期作用域**自然过期**——"下周自动恢复"不需要任何清理代码
   - **weekday 编码**：ISO 标准，`LocalDate.getDayOfWeek().getValue()`：1=周一 … 7=周日
   - **数据库迁移**：`CREATE TABLE IF NOT EXISTS` **不会**给已存在的表加列——老库要跑一次性 `ALTER TABLE`；用"捕获 duplicate column 错误并忽略"实现幂等容错（真实世界的迁移模式；阶段 3 可换 Flyway）
-  - **YAGNI**：weeks（周次范围）只存不筛——学期起始日期还没有，无法算"当前第几周"；留到阶段 3 加学期信息后再启用
+  - **YAGNI（已解除）**：weeks（周次范围）在 6.5 只存不筛；学期信息到位后由**阶段 2.5 计划**启用（`docs/superpowers/plans/2026-08-26-phase2.5-semester-weeks.md`）
 
 - [ ] **Step 2: 写失败测试**（CourseScheduleTest）
 
