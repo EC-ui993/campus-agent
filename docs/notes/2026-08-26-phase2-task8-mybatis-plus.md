@@ -49,6 +49,13 @@
 - Spring Boot 启动时自动执行 `schema.sql` 建表。
 - Database 保留从 classpath 读 schema.sql，CLI/测试也能用同一份 DDL。
 
+### 6.5 spring-boot-starter-jdbc 和 mybatis-plus-spring-boot3-starter
+
+- `spring-boot-starter-jdbc`：JDBC 启动器，带来数据库连接基础支持，自动配置 DataSource（HikariCP 连接池）。它管“连接数据库”。
+- `mybatis-plus-spring-boot3-starter`：MyBatis-Plus 启动器，让 Spring Boot 自动扫描 `@Mapper`、支持 `BaseMapper<T>`。它管“用 MyBatis-Plus 操作数据库”。
+- 两者配合：先用连接池拿到连接，再用 MyBatis-Plus 执行 CRUD。
+
+
 ### 7. ItemRepository 改造
 
 - 业务表（assignments/exams/todos/courses/events/course_overrides）用 Mapper。
@@ -66,20 +73,42 @@
 - `@DynamicPropertySource` 把数据库指向临时文件。
 - 每个测试前用 `@BeforeEach` 清库，避免数据互相污染。
 
-## 文件与方法链路
+## 文件与方法链路（详细版）
 
 ```text
 Spring Boot 启动
-   ↓ spring.sql.init
-schema.sql 建表
+   ↓ 读取 application.yml
+spring.sql.init
+   ↓ 自动执行
+schema.sql 建表（8 张表）
    ↓
-DataSource / HikariCP
-   ↓
+DataSource / HikariCP 连接池
+   ↓ 提供数据库连接
 MyBatis-Plus Mapper
-   ↓
+   ↓ 自动扫描 @Mapper 并生成实现
 ItemRepository
-   ↓
+   ↓ 调用 Mapper / DataSource
 AssistantService / Controller
+   ↓
+SQLite
+```
+
+### 一次插入请求的详细路径
+
+```text
+Controller 收到请求
+   ↓
+AssistantService
+   ↓
+ItemRepository.insert(...)
+   ↓
+AssignmentMapper.insert(...)
+   ↓
+DataSource 从连接池借连接
+   ↓
+SQLite 执行 INSERT
+   ↓
+连接还回连接池
 ```
 
 ## 今天踩坑记录
