@@ -1,6 +1,8 @@
 package com.campus.agent.web;
 
 import com.campus.agent.service.AssistantService;
+import com.campus.agent.store.StoredItem;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -8,6 +10,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.MediaType;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
+import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class ChatController {
@@ -29,6 +33,12 @@ public class ChatController {
     public ChatReply chat(@RequestBody ChatRequest req) {
         return new ChatReply(service.handle(req.message()));
     }
+
+    @GetMapping("/items")
+    public List<Map<String, Object>> items() {
+        return service.repository().allItems().stream().map(StoredItem::toMap).toList();
+    }
+
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter chatStream(@RequestBody ChatRequest req) {

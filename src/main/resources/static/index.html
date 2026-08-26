@@ -18,7 +18,7 @@
 </style>
 </head>
 <body>
-<header>🏫 校园助手</header>
+<header>🏫 校园助手 <button id="showItems" style="margin-left:12px;padding:4px 10px;">查看记录</button></header>
 <div id="messages"></div>
 <footer>
   <input id="input" placeholder="粘贴老师通知，或问我问题…" autocomplete="off">
@@ -97,6 +97,31 @@
       sendBtn.disabled = false;
     }
   }
+
+    async function showItems() {
+      try {
+        const resp = await fetch("/api/items", {
+          headers: { "X-Access-Token": token }
+        });
+        if (resp.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          alert("口令错误，请刷新页面重新输入");
+          return;
+        }
+        const items = await resp.json();
+        if (!items.length) {
+          addBubble("（数据库还没有记录）", "assistant");
+          return;
+        }
+        const lines = items.map(it => `[${it.type}] #${it.id} 《${it.title}》 ${it.dueDate || it.startTime || "-"}`);
+        addBubble(lines.join("\n"), "assistant");
+      } catch (err) {
+        addBubble("网络错误：" + err, "assistant");
+      }
+    }
+
+    document.getElementById("showItems").onclick = showItems;
+
 
   sendBtn.onclick = send;
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });

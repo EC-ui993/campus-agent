@@ -27,8 +27,6 @@ public class AssistantService {
     private final LlmClient llm;
     private final ItemRepository repo;
     private final Database db;
-    private long lastInsertedId = -1;
-    private String lastInsertedType = null;
 
     public AssistantService(LlmClient llm, ItemRepository repo, Database db) {
         this.llm = llm;
@@ -119,8 +117,6 @@ public class AssistantService {
                     lastErrors = item.validate();
                     if (lastErrors.isEmpty()) {
                         long id = repo.insert(item, messageId);
-                        lastInsertedId = id;
-                        lastInsertedType = item.type();
                         String reply = ack(item);
                         repo.insertMessage("assistant", reply);
                         return reply;
@@ -166,21 +162,28 @@ public class AssistantService {
     }
 
     private String correct(String input) {
-        if (lastInsertedId < 0 || lastInsertedType == null) {
-            return "我还没有刚记录的信息可纠正，请先录入一条信息。";
-        }
         try {
-            String json = llm.chatJson(Prompts.CORRECT, input);
-            ExtractedItem corr = ExtractedItem.fromJson(json);
-            Optional<StoredItem> currentOpt = repo.getById(lastInsertedType, lastInsertedId);
-            if (currentOpt.isEmpty()) {
-                String reply = "没找到要纠正的原记录，请先录入一条信息。";
+            String recordsJson = MAPPER.writeValueAsString(
+                    repo.allItems().stream().map(StoredItem::toMap).toList());
+            String prompt = Prompts.CORRECT.replace("{records}", recordsJson);
+            String json = llm.chatJson(prompt, input);
+            JsonNode n = MAPPER.readTree(json);
+            String type = n.path("type").asText("");
+            long id = n.path("id").asLong(-1);
+            if (id < 0 || !ExtractedItem.VALID_TYPES.contains(type)) {
+                String reply = "没听懂要纠正哪条，请带上编号，如“把作业第3条的日期改成11月12日”。";
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
-            StoredItem cur = currentOpt.get();
-            ExtractedItem merged = new ExtractedItem(
-                    lastInsertedType,
+            ExtractedItem corr = ExtractedItem.fromJson(json);
+            Optional<StoredItem> curOpt = repo.getById(type, id);
+            if (curOpt.isEmpty()) {
+                String reply = "没找到编号为 " + id + " 的" + type + " 记录。";
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
+            StoredItem cur = curOpt.get();
+            ExtractedItem merged = new ExtractedItem(type,
                     pick(corr.title(), cur.title()),
                     pick(corr.course(), cur.course()),
                     pick(corr.teacher(), cur.teacher()),
@@ -188,21 +191,21 @@ public class AssistantService {
                     pick(corr.location(), cur.location()),
                     pick(corr.dueDate(), cur.dueDate()),
                     pick(corr.dueTime(), cur.dueTime()),
-                      pick(corr.startTime(), cur.startTime()),
-                      pick(corr.endTime(), cur.endTime()),
-                      corr.weekday(), corr.weeks());
+                    pick(corr.startTime(), cur.startTime()),
+                    pick(corr.endTime(), cur.endTime()),
+                    corr.weekday(), corr.weeks());
             List<String> errors = merged.validate();
             if (!errors.isEmpty()) {
                 String reply = "纠正失败：" + String.join("；", errors);
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
-            repo.updateById(merged, lastInsertedId);
+            repo.updateById(merged, id);
             String reply = "✅ 已更新：" + summarize(merged);
             repo.insertMessage("assistant", reply);
             return reply;
-        } catch (SQLException e) {
-            throw new RuntimeException("纠正时数据库出错: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new RuntimeException("纠正出错: " + e.getMessage(), e);
         }
     }
 

@@ -107,18 +107,19 @@ class AssistantServiceTest {
     }
 
     @Test
-    void correctionFlowUpdatesLastRecord() throws Exception {
+    void correctionFlowUpdatesById() throws Exception {
         FakeLlm llm = new FakeLlm()
                 .json("{\"intent\":\"record\"}")
-                .json(VALID_ASSIGNMENT)
-                .json("{\"intent\":\"correction\"}")
-                .json("""
-                        {"type":"assignment","title":"","course":"","teacher":"",
-                         "content":"","location":"","dueDate":"2026-11-21","dueTime":""}
-                        """);
+                .json(VALID_ASSIGNMENT);
         AssistantService service = newService(llm);
         service.handle("高数作业习题5.2，11月20日前交");
         long id = service.repository().allItems().get(0).id();
+
+        llm.json("{\"intent\":\"correction\"}")
+                .json("""
+                        {"type":"assignment","id":__ID__,"title":"","course":"","teacher":"",
+                         "content":"","location":"","dueDate":"2026-11-21","dueTime":""}
+                        """.replace("__ID__", String.valueOf(id)));
 
         String reply = service.handle("不对，截止是11月21日");
         assertTrue(reply.startsWith("✅ 已更新"), "应为更新回执，实际: " + reply);
@@ -126,6 +127,23 @@ class AssistantServiceTest {
         StoredItem updated = service.repository().getById("assignment", id).orElseThrow();
         assertEquals("2026-11-21", updated.dueDate());
         assertEquals("习题5.2", updated.title(), "未纠正的字段应保留原值");
+    }
+
+    @Test
+    void correctionIdNotFound() throws Exception {
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"record\"}")
+                .json(VALID_ASSIGNMENT)
+                .json("{\"intent\":\"correction\"}")
+                .json("""
+                        {"type":"assignment","id":999,"title":"","course":"","teacher":"",
+                         "content":"","location":"","dueDate":"2026-11-21","dueTime":""}
+                        """);
+        AssistantService service = newService(llm);
+        service.handle("高数作业习题5.2，11月20日前交");
+
+        String reply = service.handle("把第999条改成11月21日");
+        assertTrue(reply.contains("没找到"), "应提示没找到记录，实际: " + reply);
     }
 
     @Test

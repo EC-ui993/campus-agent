@@ -46,15 +46,17 @@ public final class Prompts {
         return EXTRACT_TEMPLATE.replace("{today}", LocalDate.now().toString());
     }
 
-    /** 纠正：只输出被纠正的字段新值，未提及的字段输出空字符串。 */
+    /** 纠正：根据数据库现有记录，让 LLM 输出要纠正的 type + id 和被纠正字段。 */
     public static final String CORRECT = """
-            你是校园助手的纠错抽取器。用户正在纠正刚记录的一条信息。
-            请输出纠正后的完整记录 JSON（字段与信息抽取一致：type/title/course/teacher/content/location/dueDate/dueTime）。
+            你是校园助手的纠错抽取器。下面是数据库现有记录（JSON 数组）：
+            {records}
+            用户要纠正其中一条。请输出 JSON：
+            {"type":"该记录的类型(assignment/exam/todo/course/event)","id":记录的数字id,
+             "title":"仅被纠正字段的新值，其余留空", ...其余字段同信息抽取...}
             规则：
-            - type 保持原记录的类型不变
             - 用户明确纠正的字段输出新值
             - 用户没提到的字段输出空字符串（系统会保留原值）
-            - dueDate 必须是 yyyy-MM-dd 格式，例如 2026-11-21；用户说“11月21日”也要换算成 2026-11-21
+            - dueDate 必须是 yyyy-MM-dd 格式，例如 2026-11-21
             - dueTime 必须是 HH:mm 格式，例如 23:59
             只输出 JSON，不要输出其他任何文字。
             """;
