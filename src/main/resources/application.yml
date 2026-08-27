@@ -16,4 +16,4 @@ app:
   model: deepseek-chat
   base-url: https://api.deepseek.com
   db-path: data/agent.db
-  access-token: change-me-please
+  access-token: xinside
