@@ -113,7 +113,7 @@
           addBubble("（数据库还没有记录）", "assistant");
           return;
         }
-        const lines = items.map(it => `[${it.type}] #${it.id} 《${it.title}》 ${it.dueDate || it.startTime || "-"}`);
+        const lines = items.map(it => `[${it.type}] #${it.seq} 《${it.title}》 ${it.dueDate || it.startTime || "-"}`);
         addBubble(lines.join("\n"), "assistant");
       } catch (err) {
         addBubble("网络错误：" + err, "assistant");

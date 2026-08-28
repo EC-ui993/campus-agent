@@ -178,22 +178,28 @@ public class AssistantService {
 
     private String correct(String input) {
         try {
-            String recordsJson = MAPPER.writeValueAsString(
-                    repo.allItems().stream().map(StoredItem::toMap).toList());
+            String recordsJson = MAPPER.writeValueAsString(recordsWithSeq());
             String prompt = Prompts.CORRECT.replace("{records}", recordsJson);
             String json = llm.chatJson(prompt, input);
             JsonNode n = MAPPER.readTree(json);
             String type = n.path("type").asText("");
-            long id = n.path("id").asLong(-1);
-            if (id < 0 || !ExtractedItem.VALID_TYPES.contains(type)) {
+            long seq = n.path("id").asLong(-1);
+            if (seq < 0 || !ExtractedItem.VALID_TYPES.contains(type)) {
                 String reply = "没听懂要纠正哪条，请带上编号，如“把作业第3条的日期改成11月12日”。";
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
+            Optional<Long> realIdOpt = resolveIdBySeq(type, seq);
+            if (realIdOpt.isEmpty()) {
+                String reply = "没找到编号为 " + seq + " 的" + type + " 记录。";
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
+            long id = realIdOpt.get();
             ExtractedItem corr = ExtractedItem.fromJson(json);
             Optional<StoredItem> curOpt = repo.getById(type, id);
             if (curOpt.isEmpty()) {
-                String reply = "没找到编号为 " + id + " 的" + type + " 记录。";
+                String reply = "没找到编号为 " + seq + " 的" + type + " 记录。";
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
@@ -226,21 +232,27 @@ public class AssistantService {
 
     private String delete(String input) {
         try {
-            String recordsJson = MAPPER.writeValueAsString(
-                    repo.allItems().stream().map(StoredItem::toMap).toList());
+            String recordsJson = MAPPER.writeValueAsString(recordsWithSeq());
             String prompt = Prompts.DELETE.replace("{records}", recordsJson);
             String json = llm.chatJson(prompt, input);
             JsonNode n = MAPPER.readTree(json);
             String type = n.path("type").asText("");
-            long id = n.path("id").asLong(-1);
-            if (id < 0 || !DELETABLE_TYPES.contains(type)) {
+            long seq = n.path("id").asLong(-1);
+            if (seq < 0 || !DELETABLE_TYPES.contains(type)) {
                 String reply = "没听懂要删除哪条，请带上类型和编号，如“删除作业第3条”。";
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
+            Optional<Long> realIdOpt = resolveIdBySeq(type, seq);
+            if (realIdOpt.isEmpty()) {
+                String reply = "没找到编号为 " + seq + " 的" + type + " 记录。";
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
+            long id = realIdOpt.get();
             Optional<StoredItem> cur = repo.getById(type, id);
             if (cur.isEmpty()) {
-                String reply = "没找到编号为 " + id + " 的" + type + " 记录。";
+                String reply = "没找到编号为 " + seq + " 的" + type + " 记录。";
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
@@ -253,6 +265,32 @@ public class AssistantService {
             throw new RuntimeException("删除出错: " + e.getMessage(), e);
         }
     }
+
+    /** 给所有记录加上每类内的连续显示序号 seq。 */
+    public List<Map<String, Object>> recordsWithSeq() {
+        List<Map<String, Object>> result = new ArrayList<>();
+        Map<String, Integer> counters = new java.util.HashMap<>();
+        for (StoredItem s : repo.allItems()) {
+            Map<String, Object> m = s.toMap();
+            int seq = counters.merge(s.type(), 1, Integer::sum);
+            m.put("seq", seq);
+            result.add(m);
+        }
+        return result;
+    }
+
+    /** 根据类型 + 显示序号，解析出真实数据库 id。 */
+    private Optional<Long> resolveIdBySeq(String type, long seq) {
+        long index = 0;
+        for (StoredItem s : repo.allItems()) {
+            if (s.type().equals(type)) {
+                index++;
+                if (index == seq) return Optional.of(s.id());
+            }
+        }
+        return Optional.empty();
+    }
+
 
 
     /** 纠正值非空则用之，否则保留原值。 */

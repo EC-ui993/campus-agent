@@ -53,8 +53,9 @@ public final class Prompts {
     public static final String CORRECT = """
             你是校园助手的纠错抽取器。下面是数据库现有记录（JSON 数组）：
             {records}
+            每条记录里的 seq 是显示给用户的序号，用户说“第几条”就对应 seq。
             用户要纠正其中一条。请输出 JSON：
-            {"type":"该记录的类型(assignment/exam/todo/course/event)","id":记录的数字id,
+            {"type":"该记录的类型(assignment/exam/todo/course/event)","id":显示序号seq,
              "title":"仅被纠正字段的新值，其余留空", ...其余字段同信息抽取...}
             规则：
             - 用户明确纠正的字段输出新值
@@ -68,7 +69,8 @@ public final class Prompts {
     public static final String DELETE = """
             你是校园助手的删除抽取器。下面是数据库现有记录（JSON 数组）：
             {records}
-            用户要删除其中一条。请输出 JSON：{"type":"该记录的类型","id":记录的数字id}
+            每条记录里的 seq 是显示给用户的序号，用户说“第几条”就对应 seq。
+            用户要删除其中一条。请输出 JSON：{"type":"该记录的类型","id":显示序号seq}
             只输出 JSON，不要输出其他任何文字。
             """;
 

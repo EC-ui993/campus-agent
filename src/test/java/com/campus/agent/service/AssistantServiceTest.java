@@ -120,9 +120,9 @@ class AssistantServiceTest {
 
         llm.json("{\"intent\":\"correction\"}")
                 .json("""
-                        {"type":"assignment","id":__ID__,"title":"","course":"","teacher":"",
+                        {"type":"assignment","id":1,"title":"","course":"","teacher":"",
                          "content":"","location":"","dueDate":"2026-11-21","dueTime":""}
-                        """.replace("__ID__", String.valueOf(id)));
+                        """);
 
         String reply = service.handle("不对，截止是11月21日");
         assertTrue(reply.startsWith("✅ 已更新"), "应为更新回执，实际: " + reply);
@@ -210,7 +210,7 @@ class AssistantServiceTest {
         long id = service.repository().allItems().get(0).id();
 
         llm.json("{\"intent\":\"delete\"}")
-                .json("{\"type\":\"assignment\",\"id\":" + id + "}");
+                .json("{\"type\":\"assignment\",\"id\":1}");
         String reply = service.handle("删除作业第1条");
         assertTrue(reply.startsWith("🗑️"), "删除回执应以 🗑️ 开头，实际: " + reply);
         assertTrue(reply.contains("习题5.2"), "回执应带上被删内容: " + reply);

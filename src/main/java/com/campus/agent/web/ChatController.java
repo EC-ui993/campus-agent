@@ -36,7 +36,7 @@ public class ChatController {
 
     @GetMapping("/items")
     public List<Map<String, Object>> items() {
-        return service.repository().allItems().stream().map(StoredItem::toMap).toList();
+        return service.recordsWithSeq();
     }
 
 
