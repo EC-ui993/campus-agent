@@ -19,11 +19,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** 核心编排：意图分类 → 记录/提问/纠正 三条分支。 */
 public class AssistantService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Set<String> DELETABLE_TYPES =
+            Set.of("assignment", "exam", "todo", "course", "event");
 
     private final LlmClient llm;
     private final ItemRepository repo;
@@ -52,6 +55,7 @@ public class AssistantService {
         return switch (intent) {
             case "question" -> answer(input);
             case "correction" -> correct(input);
+            case "delete" -> delete(input);
             default -> record(input, messageId);
         };
     }
@@ -80,6 +84,7 @@ public class AssistantService {
             else{
                 return switch (intent){
                     case "correction" -> correct(input);
+                    case "delete" -> delete(input);
                     default -> record(input, messageId);
                 };
             }
@@ -218,6 +223,37 @@ public class AssistantService {
             throw new RuntimeException("纠正出错: " + e.getMessage(), e);
         }
     }
+
+    private String delete(String input) {
+        try {
+            String recordsJson = MAPPER.writeValueAsString(
+                    repo.allItems().stream().map(StoredItem::toMap).toList());
+            String prompt = Prompts.DELETE.replace("{records}", recordsJson);
+            String json = llm.chatJson(prompt, input);
+            JsonNode n = MAPPER.readTree(json);
+            String type = n.path("type").asText("");
+            long id = n.path("id").asLong(-1);
+            if (id < 0 || !DELETABLE_TYPES.contains(type)) {
+                String reply = "没听懂要删除哪条，请带上类型和编号，如“删除作业第3条”。";
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
+            Optional<StoredItem> cur = repo.getById(type, id);
+            if (cur.isEmpty()) {
+                String reply = "没找到编号为 " + id + " 的" + type + " 记录。";
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
+            StoredItem s = cur.get();
+            repo.deleteById(type, id);
+            String reply = "🗑️ 已删除：" + typeLabel(type) + "《" + s.title() + "》。删除不可恢复，录错了可重新录入。";
+            repo.insertMessage("assistant", reply);
+            return reply;
+        } catch (Exception e) {
+            throw new RuntimeException("删除出错: " + e.getMessage(), e);
+        }
+    }
+
 
     /** 纠正值非空则用之，否则保留原值。 */
     private String pick(String newValue, String oldValue) {

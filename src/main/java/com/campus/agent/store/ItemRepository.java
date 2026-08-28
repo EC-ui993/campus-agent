@@ -249,6 +249,19 @@ public class ItemRepository {
         }
     }
 
+    /** 按类型+id 删除业务记录；返回是否真的删掉了一行。 */
+    public boolean deleteById(String type, long id) {
+        return switch (type) {
+            case "assignment" -> assignmentMapper.deleteById(id) == 1;
+            case "exam" -> examMapper.deleteById(id) == 1;
+            case "todo" -> todoMapper.deleteById(id) == 1;
+            case "course" -> courseMapper.deleteById(id) == 1;
+            case "event" -> eventMapper.deleteById(id) == 1;
+            default -> throw new IllegalArgumentException("未知类型: " + type);
+        };
+    }
+
+
     public long insertOverrideByTitle(String courseTitle, LocalDate date, String kind,
                                       String newStart, String newEnd, String newLocation,
                                       String note, long sourceMessageId) {

@@ -179,4 +179,13 @@ class ItemRepositoryTest {
         assertEquals(1, repo.coursesOn(LocalDate.of(2026, 8, 31)).size(), "未设置学期不过滤");
     }
 
+    @Test
+    void deleteByIdRemovesRow() {
+        long id = repo.insert(new ExtractedItem("todo", "领材料", null, null, null, null, null, null, null, null, null, null), 1);
+        assertTrue(repo.deleteById("todo", id));
+        assertTrue(repo.getById("todo", id).isEmpty());
+        assertFalse(repo.deleteById("todo", id), "再删一次应返回 false");
+    }
+
+
 }

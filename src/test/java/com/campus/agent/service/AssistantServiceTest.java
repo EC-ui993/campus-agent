@@ -200,4 +200,32 @@ class AssistantServiceTest {
         assertEquals(16, repo.semester().orElseThrow().totalWeeks());
     }
 
+    @Test
+    void deleteFlowRemovesRecord() throws Exception {
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"record\"}")
+                .json(VALID_ASSIGNMENT);
+        AssistantService service = newService(llm);
+        service.handle("高数作业习题5.2，11月20日前交");
+        long id = service.repository().allItems().get(0).id();
+
+        llm.json("{\"intent\":\"delete\"}")
+                .json("{\"type\":\"assignment\",\"id\":" + id + "}");
+        String reply = service.handle("删除作业第1条");
+        assertTrue(reply.startsWith("🗑️"), "删除回执应以 🗑️ 开头，实际: " + reply);
+        assertTrue(reply.contains("习题5.2"), "回执应带上被删内容: " + reply);
+        assertTrue(service.repository().getById("assignment", id).isEmpty(), "记录应已被删除");
+    }
+
+    @Test
+    void deleteMissingIdGivesHint() throws Exception {
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"delete\"}")
+                .json("{\"type\":\"assignment\",\"id\":99}");
+        AssistantService service = newService(llm);
+        String reply = service.handle("删除作业第99条");
+        assertTrue(reply.contains("没找到"), "应提示没找到，实际: " + reply);
+    }
+
+
 }

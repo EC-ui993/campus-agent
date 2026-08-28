@@ -15,6 +15,7 @@ public final class Prompts {
             - record：提供或陈述新信息（课程、作业、考试、待办、日程、老师通知等）
             - question：提问、查询（如“今天有什么课”“还有哪些作业没写”）
             - correction：纠正刚记录的信息（如“不对，是11-21”“改一下，地点是A301”）
+            - delete：删除某条记录（如“删除作业第3条”“把待办第5条删掉”）
             只输出 JSON，不要输出其他任何文字。
             """;
 
@@ -62,6 +63,15 @@ public final class Prompts {
             - dueTime 必须是 HH:mm 格式，例如 23:59
             只输出 JSON，不要输出其他任何文字。
             """;
+
+    /** 删除：根据数据库现有记录，让 LLM 输出要删除的 type + id。 */
+    public static final String DELETE = """
+            你是校园助手的删除抽取器。下面是数据库现有记录（JSON 数组）：
+            {records}
+            用户要删除其中一条。请输出 JSON：{"type":"该记录的类型","id":记录的数字id}
+            只输出 JSON，不要输出其他任何文字。
+            """;
+
 
     /** 问答：只依据提供的数据库内容回答。 */
     public static final String ANSWER = """
