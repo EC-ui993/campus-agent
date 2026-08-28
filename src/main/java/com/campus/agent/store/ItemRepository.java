@@ -7,12 +7,14 @@ import com.campus.agent.store.entity.Course;
 import com.campus.agent.store.entity.CourseOverride;
 import com.campus.agent.store.entity.Event;
 import com.campus.agent.store.entity.Exam;
+import com.campus.agent.store.entity.Semester;
 import com.campus.agent.store.entity.Todo;
 import com.campus.agent.store.mapper.AssignmentMapper;
 import com.campus.agent.store.mapper.CourseMapper;
 import com.campus.agent.store.mapper.CourseOverrideMapper;
 import com.campus.agent.store.mapper.EventMapper;
 import com.campus.agent.store.mapper.ExamMapper;
+import com.campus.agent.store.mapper.SemesterMapper;
 import com.campus.agent.store.mapper.TodoMapper;
 import org.springframework.stereotype.Repository;
 
@@ -23,6 +25,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,17 +42,20 @@ public class ItemRepository {
     private final CourseMapper courseMapper;
     private final EventMapper eventMapper;
     private final CourseOverrideMapper courseOverrideMapper;
+    private final SemesterMapper semesterMapper;
     private final DataSource dataSource;
 
     public ItemRepository(AssignmentMapper assignmentMapper, ExamMapper examMapper, TodoMapper todoMapper,
                           CourseMapper courseMapper, EventMapper eventMapper,
-                          CourseOverrideMapper courseOverrideMapper, DataSource dataSource) {
+                          CourseOverrideMapper courseOverrideMapper, SemesterMapper semesterMapper,
+                          DataSource dataSource) {
         this.assignmentMapper = assignmentMapper;
         this.examMapper = examMapper;
         this.todoMapper = todoMapper;
         this.courseMapper = courseMapper;
         this.eventMapper = eventMapper;
         this.courseOverrideMapper = courseOverrideMapper;
+        this.semesterMapper = semesterMapper;
         this.dataSource = dataSource;
     }
 
@@ -292,6 +298,37 @@ public class ItemRepository {
     private String pick(String newVal, String oldVal) {
         return (newVal != null && !newVal.isBlank()) ? newVal : oldVal;
     }
+
+    /** 设置学期（单行表 id=1，有则覆盖）。 */
+    public void setSemester(LocalDate start, int totalWeeks) {
+        semesterMapper.deleteById(1L);
+        Semester s = new Semester();
+        s.setId(1L);
+        s.setStartDate(start.toString());
+        s.setTotalWeeks(totalWeeks);
+        semesterMapper.insert(s);
+    }
+
+    public Optional<SemesterInfo> semester() {
+        Semester s = semesterMapper.selectById(1L);
+        if (s == null) return Optional.empty();
+        return Optional.of(new SemesterInfo(LocalDate.parse(s.getStartDate()), s.getTotalWeeks()));
+    }
+
+    /** 今天是本学期第几周：-1=未设置学期；0=未开学；1..totalWeeks=学期内；>totalWeeks=假期。 */
+    public Optional<Integer> weekOf(LocalDate today) {
+        Optional<SemesterInfo> s = semester();
+        if (s.isEmpty()) return Optional.of(-1);
+        long days = ChronoUnit.DAYS.between(s.get().start(), today);
+        if (days < 0) return Optional.of(0);
+        return Optional.of((int) (days / 7) + 1);
+    }
+
+    /** 仅测试用：清空学期设置。 */
+    public void clearSemester() {
+        semesterMapper.deleteById(1L);
+    }
+
 
     public long insertMessage(String role, String content) throws SQLException {
         try (Connection c = dataSource.getConnection();

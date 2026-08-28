@@ -10,6 +10,7 @@ import com.campus.agent.store.mapper.CourseMapper;
 import com.campus.agent.store.mapper.CourseOverrideMapper;
 import com.campus.agent.store.mapper.EventMapper;
 import com.campus.agent.store.mapper.ExamMapper;
+import com.campus.agent.store.mapper.SemesterMapper;
 import com.campus.agent.store.mapper.TodoMapper;
 import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
@@ -30,9 +31,9 @@ public class AppBeans {
     public ItemRepository itemRepository(AssignmentMapper assignmentMapper, ExamMapper examMapper,
                                          TodoMapper todoMapper, CourseMapper courseMapper,
                                          EventMapper eventMapper, CourseOverrideMapper courseOverrideMapper,
-                                         DataSource dataSource) {
+                                         SemesterMapper semesterMapper, DataSource dataSource) {
         return new ItemRepository(assignmentMapper, examMapper, todoMapper, courseMapper,
-                eventMapper, courseOverrideMapper, dataSource);
+                eventMapper, courseOverrideMapper, semesterMapper, dataSource);
     }
 
     @Bean

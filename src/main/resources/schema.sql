@@ -80,3 +80,11 @@ CREATE TABLE IF NOT EXISTS course_overrides(
   note TEXT,
   source_message_id INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+
+CREATE TABLE IF NOT EXISTS semester(
+  id INTEGER PRIMARY KEY,
+  start_date TEXT NOT NULL,
+  total_weeks INTEGER NOT NULL,
+  note TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+
