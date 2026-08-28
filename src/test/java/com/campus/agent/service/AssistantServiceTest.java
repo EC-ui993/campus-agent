@@ -183,4 +183,21 @@ class AssistantServiceTest {
         assertTrue(llm.lastUserPrompt.contains("今天("), "应包含今天课程段: " + llm.lastUserPrompt);
         assertTrue(llm.lastUserPrompt.contains("高数"), "应包含课程名: " + llm.lastUserPrompt);
     }
+
+    @Test
+    void semesterSettingViaChat() throws Exception {
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"record\"}")
+                .json("""
+                        {"type":"semester_setting","title":"","course":"","teacher":"",
+                         "content":"","location":"","dueDate":"","dueTime":"",
+                         "startDate":"2026-09-01","totalWeeks":16,"note":""}
+                        """);
+        AssistantService service = newService(llm);
+        String reply = service.handle("本学期9月1日开始，共16周");
+        assertTrue(reply.contains("已设置学期"), "应提示已设置学期，实际: " + reply);
+        assertTrue(repo.semester().isPresent(), "学期应已写入数据库");
+        assertEquals(16, repo.semester().orElseThrow().totalWeeks());
+    }
+
 }

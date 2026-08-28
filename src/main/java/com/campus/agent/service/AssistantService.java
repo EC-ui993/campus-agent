@@ -4,6 +4,7 @@ import com.campus.agent.Prompts;
 import com.campus.agent.llm.LlmClient;
 import com.campus.agent.model.ExtractedItem;
 import com.campus.agent.model.ExtractedOverride;
+import com.campus.agent.model.ExtractedSemesterSetting;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.StoredItem;
@@ -110,6 +111,15 @@ public class AssistantService {
                         long id = repo.insertOverrideByTitle(ov.courseTitle(), LocalDate.parse(ov.overrideDate()), ov.kind(),
                                 ov.newStartTime(), ov.newEndTime(), ov.newLocation(), ov.note(), messageId);
                         String reply = "✅ 已记录变动：" + ov.courseTitle() + " " + ov.overrideDate() + " " + ("cancel".equals(ov.kind()) ? "停课" : "调课");
+                        repo.insertMessage("assistant", reply);
+                        return reply;
+                    }
+                } else if ("semester_setting".equals(item.type())) {
+                    ExtractedSemesterSetting st = ExtractedSemesterSetting.fromJson(json);
+                    lastErrors = st.validate();
+                    if (lastErrors.isEmpty()) {
+                        repo.setSemester(LocalDate.parse(st.startDate()), st.totalWeeks());
+                        String reply = "✅ 已设置学期：" + st.startDate() + " 开始，共 " + st.totalWeeks() + " 周";
                         repo.insertMessage("assistant", reply);
                         return reply;
                     }

@@ -18,7 +18,7 @@ public record ExtractedItem(
         String startTime, String endTime, Integer weekday, String weeks) {
 
     public static final Set<String> VALID_TYPES =
-            Set.of("assignment", "exam", "todo", "course", "event","course_override");
+            Set.of("assignment", "exam", "todo", "course", "event", "course_override", "semester_setting");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
