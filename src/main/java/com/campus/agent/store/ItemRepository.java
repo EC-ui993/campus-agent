@@ -270,12 +270,30 @@ public class ItemRepository {
     public List<CourseOccurrence> coursesOn(LocalDate date) {
         int weekday = date.getDayOfWeek().getValue();
         Map<Long, CourseOccurrence> byId = new LinkedHashMap<>();
+        Map<Long, String> courseWeeks = new LinkedHashMap<>();
         List<Course> courses = courseMapper.selectList(
                 new QueryWrapper<Course>().eq("weekday", weekday).orderByAsc("start_time"));
         for (Course c : courses) {
             byId.put(c.getId(), new CourseOccurrence(c.getId(), c.getTitle(), c.getTeacher(), c.getLocation(),
                     c.getStartTime(), c.getEndTime(), null));
+            courseWeeks.put(c.getId(), c.getWeeks());
         }
+
+        Optional<Integer> weekOpt = weekOf(date);
+        if (weekOpt.isPresent() && weekOpt.get() >= 1) {
+            Optional<SemesterInfo> sem = semester();
+            if (sem.isPresent() && weekOpt.get() > sem.get().totalWeeks()) {
+                return List.of();
+            }
+            Map<Long, CourseOccurrence> filtered = new LinkedHashMap<>();
+            for (Map.Entry<Long, CourseOccurrence> e : byId.entrySet()) {
+                if (WeekRanges.contains(courseWeeks.get(e.getKey()), weekOpt.get())) {
+                    filtered.put(e.getKey(), e.getValue());
+                }
+            }
+            byId = filtered;
+        }
+
         List<CourseOverride> overrides = courseOverrideMapper.selectList(
                 new QueryWrapper<CourseOverride>().eq("override_date", date.toString()));
         for (CourseOverride ov : overrides) {

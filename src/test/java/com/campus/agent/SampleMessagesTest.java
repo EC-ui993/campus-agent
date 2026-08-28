@@ -8,6 +8,7 @@ import com.campus.agent.store.mapper.CourseMapper;
 import com.campus.agent.store.mapper.CourseOverrideMapper;
 import com.campus.agent.store.mapper.EventMapper;
 import com.campus.agent.store.mapper.ExamMapper;
+import com.campus.agent.store.mapper.SemesterMapper;
 import com.campus.agent.store.mapper.TodoMapper;
 import com.campus.agent.testing.FakeLlm;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,9 +51,11 @@ class SampleMessagesTest {
     @Autowired CourseMapper courseMapper;
     @Autowired EventMapper eventMapper;
     @Autowired CourseOverrideMapper courseOverrideMapper;
+    @Autowired SemesterMapper semesterMapper;
 
     @BeforeEach
     void cleanDb() {
+        semesterMapper.delete(null);
         courseOverrideMapper.delete(null);
         assignmentMapper.delete(null);
         examMapper.delete(null);

@@ -6,6 +6,7 @@ import com.campus.agent.store.mapper.CourseMapper;
 import com.campus.agent.store.mapper.CourseOverrideMapper;
 import com.campus.agent.store.mapper.EventMapper;
 import com.campus.agent.store.mapper.ExamMapper;
+import com.campus.agent.store.mapper.SemesterMapper;
 import com.campus.agent.store.mapper.TodoMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,9 +44,11 @@ class ItemRepositoryTest {
     @Autowired CourseMapper courseMapper;
     @Autowired EventMapper eventMapper;
     @Autowired CourseOverrideMapper courseOverrideMapper;
+    @Autowired SemesterMapper semesterMapper;
 
     @BeforeEach
     void cleanDb() {
+        semesterMapper.delete(null);
         courseOverrideMapper.delete(null);
         assignmentMapper.delete(null);
         examMapper.delete(null);
@@ -148,4 +151,32 @@ class ItemRepositoryTest {
         repo.insertOverrideByTitle("高树", MONDAY, "cancel", null, null, null, null, 2);
         assertEquals(1, repo.coursesOn(MONDAY).size());
     }
+
+    @Test
+    void weeksFilterByCurrentWeek() throws Exception {
+        repo.setSemester(LocalDate.of(2026, 8, 31), 16);
+        repo.insert(new ExtractedItem("course", "高数", null, null, null,
+                "A201", null, null, "08:00", "09:40", 1, "1-8"), 1);
+        repo.insert(new ExtractedItem("course", "英语", null, null, null,
+                "B101", null, null, "10:00", "11:40", 1, "10-16"), 2);
+        repo.insert(new ExtractedItem("course", "体育", null, null, null,
+                "操场", null, null, "14:00", "15:40", 1, null), 3);
+
+        List<CourseOccurrence> w1 = repo.coursesOn(LocalDate.of(2026, 8, 31));
+        assertEquals(2, w1.size());
+
+        List<CourseOccurrence> w10 = repo.coursesOn(LocalDate.of(2026, 11, 2));
+        assertEquals(2, w10.size());
+        assertEquals("英语", w10.get(0).title());
+
+        assertTrue(repo.coursesOn(LocalDate.of(2026, 12, 21)).isEmpty());
+    }
+
+    @Test
+    void noSemesterMeansNoWeeksFilter() throws Exception {
+        repo.insert(new ExtractedItem("course", "高数", null, null, null,
+                "A201", null, null, "08:00", "09:40", 1, "1-8"), 1);
+        assertEquals(1, repo.coursesOn(LocalDate.of(2026, 8, 31)).size(), "未设置学期不过滤");
+    }
+
 }
