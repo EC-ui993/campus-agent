@@ -254,9 +254,26 @@ public class AssistantService {
 
     private String todaySection() {
         try {
+            String weekLine;
+            var weekOpt = repo.weekOf(LocalDate.now());
+            if (weekOpt.isEmpty() || weekOpt.get() == -1) {
+                weekLine = "（未设置学期信息，无法按周次过滤课程；说“本学期从X月X日开始，共N周”即可设置）";
+            } else {
+                int w = weekOpt.get();
+                var sem = repo.semester().orElseThrow();
+                if (w == 0) {
+                    weekLine = "（尚未开学，学期 " + sem.start() + " 开始）";
+                } else if (w > sem.totalWeeks()) {
+                    weekLine = "（假期中，本学期共 " + sem.totalWeeks() + " 周已结束）";
+                } else {
+                    weekLine = "今天是本学期第 " + w + " 周（共 " + sem.totalWeeks() + " 周）";
+                }
+            }
             List<CourseOccurrence> todayCourses = repo.coursesOn(LocalDate.now());
-            if (todayCourses.isEmpty()) return "（今天没有安排课程）";
-            return MAPPER.writeValueAsString(todayCourses.stream().map(CourseOccurrence::toMap).toList());
+            String courses = todayCourses.isEmpty()
+                    ? "（今天没有安排课程）"
+                    : MAPPER.writeValueAsString(todayCourses.stream().map(CourseOccurrence::toMap).toList());
+            return weekLine + "\n" + courses;
         } catch (JsonProcessingException e) {
             throw new RuntimeException("序列化今日课程失败: " + e.getMessage(), e);
         }
