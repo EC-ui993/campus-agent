@@ -1,5 +1,6 @@
 package com.campus.agent.store;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.campus.agent.model.ExtractedItem;
 import com.campus.agent.store.entity.Assignment;
@@ -248,6 +249,44 @@ public class ItemRepository {
             default -> throw new IllegalArgumentException("未知类型: " + type);
         }
     }
+
+    /** 某类型记录中 due_date 落在 [from, to] 区间的列表（按 due_date, due_time 排序）。 */
+    public List<StoredItem> dueBetween(String type, LocalDate from, LocalDate to) {
+        return switch (type) {
+            case "assignment" -> assignmentMapper.selectList(new LambdaQueryWrapper<Assignment>()
+                            .ge(Assignment::getDueDate, from.toString())
+                            .le(Assignment::getDueDate, to.toString())
+                            .orderByAsc(Assignment::getDueDate, Assignment::getDueTime))
+                    .stream().map(this::toStored).toList();
+            case "exam" -> examMapper.selectList(new LambdaQueryWrapper<Exam>()
+                            .ge(Exam::getDueDate, from.toString())
+                            .le(Exam::getDueDate, to.toString())
+                            .orderByAsc(Exam::getDueDate, Exam::getDueTime))
+                    .stream().map(this::toStored).toList();
+            case "todo" -> todoMapper.selectList(new LambdaQueryWrapper<Todo>()
+                            .ge(Todo::getDueDate, from.toString())
+                            .le(Todo::getDueDate, to.toString())
+                            .orderByAsc(Todo::getDueDate, Todo::getDueTime))
+                    .stream().map(this::toStored).toList();
+            default -> throw new IllegalArgumentException("不支持的区间查询类型: " + type);
+        };
+    }
+
+    private StoredItem toStored(Assignment e) {
+        return new StoredItem(e.getId(), "assignment", e.getTitle(), e.getCourse(), e.getTeacher(),
+                e.getContent(), null, e.getDueDate(), e.getDueTime(), null, null, e.getStatus());
+    }
+
+    private StoredItem toStored(Exam e) {
+        return new StoredItem(e.getId(), "exam", e.getTitle(), e.getCourse(), e.getTeacher(),
+                e.getContent(), e.getLocation(), e.getDueDate(), e.getDueTime(), null, null, e.getStatus());
+    }
+
+    private StoredItem toStored(Todo e) {
+        return new StoredItem(e.getId(), "todo", e.getTitle(), null, null,
+                e.getContent(), null, e.getDueDate(), e.getDueTime(), null, null, e.getStatus());
+    }
+
 
     /** 按类型+id 删除业务记录；返回是否真的删掉了一行。 */
     public boolean deleteById(String type, long id) {
