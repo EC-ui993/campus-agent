@@ -1,19 +1,27 @@
 package com.campus.agent.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campus.agent.store.CourseOccurrence;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.StoredItem;
+import com.campus.agent.store.entity.Report;
+import com.campus.agent.store.mapper.ReportMapper;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
 
 /** 每日早报：纯模板拼接（数据确定，不需要 LLM）。 */
+@Service
 public class DailyReportService {
 
     private final ItemRepository repo;
+    private final ReportMapper reportMapper;
 
-    public DailyReportService(ItemRepository repo) {
+    public DailyReportService(ItemRepository repo, ReportMapper reportMapper) {
         this.repo = repo;
+        this.reportMapper = reportMapper;
     }
 
     public String buildReport(LocalDate today) {
@@ -38,6 +46,26 @@ public class DailyReportService {
         appendDue(sb, "【今日待办】", repo.dueBetween("todo", today, today));
         return sb.toString();
     }
+
+    /** 取当天报告；不存在则现场生成并保存（幂等：一天一份）。 */
+    public String todayReport() {
+        LocalDate today = LocalDate.now();
+        Report existing = reportMapper.selectOne(
+                new LambdaQueryWrapper<Report>().eq(Report::getReportDate, today.toString()));
+        if (existing != null) return existing.getContent();
+        String content = buildReport(today);
+        Report r = new Report();
+        r.setReportDate(today.toString());
+        r.setContent(content);
+        reportMapper.insert(r);
+        return content;
+    }
+
+    @Scheduled(cron = "${app.report-cron:0 0 7 * * ?}")
+    public void generateDaily() {
+        todayReport();
+    }
+
 
     private void appendDue(StringBuilder sb, String title, List<StoredItem> items) {
         sb.append("\n").append(title).append("\n");

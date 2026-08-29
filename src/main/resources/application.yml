@@ -21,3 +21,5 @@ app:
   base-url: https://api.deepseek.com
   db-path: data/agent.db
   access-token: xinside
+  report-cron: "0 0 7 * * ?"
+        # report-cron: "0 0 7 * * ?"

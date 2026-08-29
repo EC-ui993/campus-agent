@@ -15,12 +15,14 @@
   footer { display: flex; gap: 8px; padding: 10px; background: #fff; border-top: 1px solid #e5e6eb; }
   #input { flex: 1; border: 1px solid #d0d3d9; border-radius: 8px; padding: 10px 12px; font-size: 15px; }
   #send { border: none; background: #409eff; color: #fff; border-radius: 8px; padding: 0 20px; font-size: 15px; cursor: pointer; }
+    #report { white-space: pre-wrap; background:#fff; border-bottom:1px solid #e5e6eb; padding:12px 16px; }
 </style>
 </head>
 <body>
 <header>🏫 校园助手 <button id="importBtn" style="float:right">📥 导入课表</button>
   <button id="showItems" style="float:right;margin-right:8px;">查看记录</button>
   <input type="file" id="importFile" accept=".xlsx" style="display:none"></header>
+<div id="report" style="display:none;"></div>
 <div id="importResult" style="display:none; padding:8px 16px; background:#fffbe6; border-bottom:1px solid #e5e6eb"></div>
 <div id="messages"></div>
 <footer>
@@ -62,6 +64,19 @@
         importFile.value = "";
       }
     };
+
+    async function loadReport() {
+      try {
+        const resp = await fetch("/api/report/today", { headers: { "X-Access-Token": token } });
+        if (resp.status === 401) return;
+        const data = await resp.json();
+        const el = document.getElementById("report");
+        el.style.display = "block";
+        el.textContent = data.content;
+      } catch (e) { /* 早报失败不阻塞聊天 */ }
+    }
+    loadReport();
+
 
 
   function addBubble(text, who) {

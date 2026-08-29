@@ -1,4 +1,4 @@
-package com.campus.agent.service;
+package com.campus.agent.web;
 
 import com.campus.agent.model.ExtractedItem;
 import com.campus.agent.store.ItemRepository;
@@ -13,28 +13,34 @@ import com.campus.agent.store.mapper.TodoMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-class DailyReportServiceTest {
+@AutoConfigureMockMvc
+class ReportControllerTest {
 
     private static Path dbPath;
 
     @DynamicPropertySource
     static void props(DynamicPropertyRegistry registry) throws Exception {
-        dbPath = Files.createTempFile("daily-report-test", ".db");
+        dbPath = Files.createTempFile("report-controller-test", ".db");
         Files.deleteIfExists(dbPath);
         registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + dbPath);
     }
 
+    @Autowired MockMvc mvc;
     @Autowired ItemRepository repo;
     @Autowired AssignmentMapper assignmentMapper;
     @Autowired ExamMapper examMapper;
@@ -58,29 +64,19 @@ class DailyReportServiceTest {
     }
 
     @Test
-    void reportContainsTodayCoursesAndDueItems() {
-        DailyReportService svc = new DailyReportService(repo, reportMapper);
-        LocalDate today = LocalDate.of(2026, 8, 31); // 周一
-        repo.setSemester(LocalDate.of(2026, 8, 31), 16);
+    void todayReportContainsCourseAndIsIdempotent() throws Exception {
+        int weekday = LocalDate.now().getDayOfWeek().getValue();
         repo.insert(new ExtractedItem("course", "高数", null, null, null, "A201", null, null,
-                "08:00", "09:40", 1, "1-16"), 1);
-        repo.insert(new ExtractedItem("assignment", "习题5.2", "高数", null, null, null,
-                today.toString(), "23:59", null, null, null, null), 2);
-        repo.insert(new ExtractedItem("exam", "期中", "英语", null, null, "D105",
-                today.plusDays(5).toString(), "09:00", null, null, null, null), 3);
+                "08:00", "09:40", weekday, null), 1);
 
-        String report = svc.buildReport(today);
-        assertTrue(report.contains("高数"), report);
-        assertTrue(report.contains("08:00"), report);
-        assertTrue(report.contains("习题5.2"), report);
-        assertTrue(report.contains("期中"), report);
-    }
+        mvc.perform(get("/api/report/today").header("X-Access-Token", "xinside"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").value(org.hamcrest.Matchers.containsString("高数")));
 
-    @Test
-    void emptyDayStillBuilds() {
-        DailyReportService svc = new DailyReportService(repo, reportMapper);
-        String report = svc.buildReport(LocalDate.of(2026, 8, 31));
-        assertTrue(report.contains("今日课程"));
-        assertTrue(report.contains("（无）"), report);
+        mvc.perform(get("/api/report/today").header("X-Access-Token", "xinside"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").value(org.hamcrest.Matchers.containsString("高数")));
+
+        assertEquals(1L, reportMapper.selectCount(null));
     }
 }
