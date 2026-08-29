@@ -18,7 +18,10 @@
 </style>
 </head>
 <body>
-<header>🏫 校园助手 <button id="showItems" style="margin-left:12px;padding:4px 10px;">查看记录</button></header>
+<header>🏫 校园助手 <button id="importBtn" style="float:right">📥 导入课表</button>
+  <button id="showItems" style="float:right;margin-right:8px;">查看记录</button>
+  <input type="file" id="importFile" accept=".xlsx" style="display:none"></header>
+<div id="importResult" style="display:none; padding:8px 16px; background:#fffbe6; border-bottom:1px solid #e5e6eb"></div>
 <div id="messages"></div>
 <footer>
   <input id="input" placeholder="粘贴老师通知，或问我问题…" autocomplete="off">
@@ -35,6 +38,31 @@
   const messages = document.getElementById("messages");
   const input = document.getElementById("input");
   const sendBtn = document.getElementById("send");
+
+    const importBtn = document.getElementById("importBtn");
+    const importFile = document.getElementById("importFile");
+    const importResult = document.getElementById("importResult");
+    importBtn.onclick = () => importFile.click();
+    importFile.onchange = async () => {
+      const file = importFile.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append("file", file);
+      importResult.style.display = "block";
+      importResult.textContent = "正在导入 " + file.name + " …";
+      try {
+        const resp = await fetch("/api/import/excel", { method: "POST", headers: { "X-Access-Token": token }, body: fd });
+        const data = await resp.json();
+        importResult.textContent = data.error
+            ? "导入失败：" + data.error
+            : "📥 导入完成：成功 " + data.ok + " 条，失败 " + data.failed + " 条" + (data.failed ? "（失败行已存档，可在记录面板查看）" : "");
+      } catch (err) {
+        importResult.textContent = "导入出错：" + err;
+      } finally {
+        importFile.value = "";
+      }
+    };
+
 
   function addBubble(text, who) {
     const div = document.createElement("div");
