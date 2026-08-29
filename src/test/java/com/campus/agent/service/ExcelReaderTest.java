@@ -41,4 +41,47 @@ class ExcelReaderTest {
             assertTrue(ExcelReader.readRowsAsText(in).isEmpty(), "只有表头没有数据 → 空列表");
         }
     }
+
+    @Test
+    void skipsLeadingEmptyRowsBeforeHeader(@TempDir Path tmp) throws Exception {
+        Path xlsx = tmp.resolve("leading-empty.xlsx");
+        List<List<String>> data = List.of(
+                List.of(),
+                List.of(),
+                List.of("课程名", "星期", "开始时间", "结束时间", "教室", "周次"),
+                List.of("高数", "周一", "08:00", "09:40", "A201", "1-16"));
+        EasyExcel.write(xlsx.toFile()).sheet("课表").doWrite(data);
+
+        List<String> rows;
+        try (InputStream in = Files.newInputStream(xlsx)) {
+            rows = ExcelReader.readRowsAsText(in);
+        }
+        assertEquals(1, rows.size(), "应跳过两个空行，只读出高数");
+        assertTrue(rows.get(0).contains("高数"), "实际: " + rows.get(0));
+        assertTrue(rows.get(0).contains("08:00"));
+    }
+
+    @Test
+    void readsMatrixSchedulePerCell(@TempDir Path tmp) throws Exception {
+        Path xlsx = tmp.resolve("matrix.xlsx");
+        List<List<String>> data = List.of(
+                List.of("", "星期一", "星期二"),
+                List.of("08:30~09:50", "操作系统", "英语"),
+                List.of("10:10~12:15", "高数", ""));
+        EasyExcel.write(xlsx.toFile()).sheet("课表").doWrite(data);
+
+        List<String> rows;
+        try (InputStream in = Files.newInputStream(xlsx)) {
+            rows = ExcelReader.readRowsAsText(in);
+        }
+        assertEquals(3, rows.size(), "三个非空格子都应生成一条");
+        assertTrue(rows.get(0).contains("星期一"), "实际: " + rows.get(0));
+        assertTrue(rows.get(0).contains("08:30~09:50"));
+        assertTrue(rows.get(0).contains("操作系统"));
+        assertTrue(rows.get(1).contains("星期二"));
+        assertTrue(rows.get(1).contains("英语"));
+        assertTrue(rows.get(2).contains("高数"));
+    }
+
+
 }
