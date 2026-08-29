@@ -30,11 +30,13 @@ public class AssistantService {
 
     private final LlmClient llm;
     private final ItemRepository repo;
+    private final ExtractionEngine engine;
     private final Database db;
 
-    public AssistantService(LlmClient llm, ItemRepository repo, Database db) {
+    public AssistantService(LlmClient llm, ItemRepository repo, ExtractionEngine engine, Database db) {
         this.llm = llm;
         this.repo = repo;
+        this.engine = engine;
         this.db = db;
     }
 
@@ -104,50 +106,14 @@ public class AssistantService {
     }
 
     private String record(String input, long messageId) {
-        List<String> lastErrors = List.of();
-        for (int attempt = 1; attempt <= 2; attempt++) {
-            try {
-                String json = llm.chatJson(Prompts.extract(), input);
-                ExtractedItem item = ExtractedItem.fromJson(json);
-                if ("course_override".equals(item.type())) {
-                    ExtractedOverride ov = ExtractedOverride.fromJson(json);
-                    lastErrors = ov.validate();
-                    if (lastErrors.isEmpty()) {
-                        long id = repo.insertOverrideByTitle(ov.courseTitle(), LocalDate.parse(ov.overrideDate()), ov.kind(),
-                                ov.newStartTime(), ov.newEndTime(), ov.newLocation(), ov.note(), messageId);
-                        String reply = "✅ 已记录变动：" + ov.courseTitle() + " " + ov.overrideDate() + " " + ("cancel".equals(ov.kind()) ? "停课" : "调课");
-                        repo.insertMessage("assistant", reply);
-                        return reply;
-                    }
-                } else if ("semester_setting".equals(item.type())) {
-                    ExtractedSemesterSetting st = ExtractedSemesterSetting.fromJson(json);
-                    lastErrors = st.validate();
-                    if (lastErrors.isEmpty()) {
-                        repo.setSemester(LocalDate.parse(st.startDate()), st.totalWeeks());
-                        String reply = "✅ 已设置学期：" + st.startDate() + " 开始，共 " + st.totalWeeks() + " 周";
-                        repo.insertMessage("assistant", reply);
-                        return reply;
-                    }
-                } else {
-                    lastErrors = item.validate();
-                    if (lastErrors.isEmpty()) {
-                        long id = repo.insert(item, messageId);
-                        String reply = ack(item);
-                        repo.insertMessage("assistant", reply);
-                        return reply;
-                    }
-                }
-            } catch (Exception e) {
-                lastErrors = List.of(e.getMessage());
-            }
-        }
-        String reply = "⚠️ 这条我没能解析成结构化记录（原因：" + String.join("；", lastErrors)
-                + "），原文已存档。你可以换个说法再说一次。";
+        ExtractionEngine.Outcome o = engine.extractAndStore(input, messageId);
+        String reply = o.ok()
+                ? "✅ 已记录：" + o.summary()
+                : "⚠️ 这条我没能解析成结构化记录（原因：" + o.error() + "），原文已存档。你可以换个说法再说一次。";
         try {
-            repo.insertRaw(input, String.join("；", lastErrors));
             repo.insertMessage("assistant", reply);
         } catch (SQLException e) {
-            throw new RuntimeException("写 raw_inbox 失败: " + e.getMessage(), e);
+            throw new RuntimeException("保存聊天记录失败: " + e.getMessage(), e);
         }
         return reply;
     }

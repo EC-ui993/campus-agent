@@ -3,6 +3,7 @@ package com.campus.agent.config;
 import com.campus.agent.llm.DeepSeekClient;
 import com.campus.agent.llm.LlmClient;
 import com.campus.agent.service.AssistantService;
+import com.campus.agent.service.ExtractionEngine;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.mapper.AssignmentMapper;
@@ -42,7 +43,12 @@ public class AppBeans {
     }
 
     @Bean
-    public AssistantService assistantService(LlmClient llm, ItemRepository repo, Database db) {
-        return new AssistantService(llm, repo, db);
+    public ExtractionEngine extractionEngine(LlmClient llm, ItemRepository repo) {
+        return new ExtractionEngine(llm, repo);
+    }
+
+    @Bean
+    public AssistantService assistantService(LlmClient llm, ItemRepository repo, ExtractionEngine engine, Database db) {
+        return new AssistantService(llm, repo, engine, db);
     }
 }

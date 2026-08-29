@@ -64,7 +64,7 @@ class AssistantServiceTest {
     }
 
     private AssistantService newService(FakeLlm llm) {
-        return new AssistantService(llm, repo, db);
+        return new AssistantService(llm, repo, new ExtractionEngine(llm, repo), db);
     }
 
     private static final String VALID_ASSIGNMENT = """
@@ -195,7 +195,7 @@ class AssistantServiceTest {
                         """);
         AssistantService service = newService(llm);
         String reply = service.handle("本学期9月1日开始，共16周");
-        assertTrue(reply.contains("已设置学期"), "应提示已设置学期，实际: " + reply);
+        assertTrue(reply.contains("已记录：学期"), "应提示已记录学期，实际: " + reply);
         assertTrue(repo.semester().isPresent(), "学期应已写入数据库");
         assertEquals(16, repo.semester().orElseThrow().totalWeeks());
     }

@@ -1,6 +1,7 @@
 package com.campus.agent;
 
 import com.campus.agent.service.AssistantService;
+import com.campus.agent.service.ExtractionEngine;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.mapper.AssignmentMapper;
@@ -93,7 +94,7 @@ class SampleMessagesTest {
         for (String[] sample : SAMPLES) {
             llm.json("{\"intent\":\"record\"}").json(sample[1]);
         }
-        AssistantService service = new AssistantService(llm, repo, db);
+        AssistantService service = new AssistantService(llm, repo, new ExtractionEngine(llm, repo), db);
         for (String[] sample : SAMPLES) {
             String reply = service.handle(sample[0]);
             assertTrue(reply.startsWith("✅"), "样例应成功入库，实际回复: " + reply);
