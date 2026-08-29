@@ -19,7 +19,8 @@
 </style>
 </head>
 <body>
-<header>🏫 校园助手 <button id="importBtn" style="float:right">📥 导入课表</button>
+<header>🏫 校园助手 <button id="weekBtn" style="float:right;margin-right:8px;">本周课表</button>
+  <button id="importBtn" style="float:right;margin-right:8px;">📥 导入课表</button>
   <button id="showItems" style="float:right;margin-right:8px;">查看记录</button>
   <input type="file" id="importFile" accept=".xls,.xlsx" style="display:none"></header>
 <div id="report" style="display:none;"></div>
@@ -109,29 +110,36 @@
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-        let finished = false;
+      let finished = false;
+      let eventLines = [];          // 当前这条 SSE 事件的 data 行内容
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value,{stream:true});
         const parts = buffer.split("\n");
-        buffer =  parts.pop();
+        buffer = parts.pop();
         for (const part of parts) {
           const line = part.trim();
           if (line.startsWith("event:done")) {
-              finished = true;
-              continue;
-            }
-            if (line.startsWith("data:")) {
-            const text = line.substring(5).trim();
-              if (finished) {
-                bubble.textContent = text;
-              } else {
-                bubble.textContent += text;
-              }
+            finished = true;          // done 的数据 = 流式内容重复，不再显示
+            eventLines = [];
+            continue;
+          }
+          if (line.startsWith("data:")) {
+            if (!finished) eventLines.push(line.substring(5).trim());
+            continue;
+          }
+          // 空行 = 一条 SSE 事件结束：把事件内容按 \n 拼回，一次性追加
+          if (line === "" && !finished && eventLines.length > 0) {
+            bubble.textContent += eventLines.join("\n");
+            eventLines = [];
             messages.scrollTop = messages.scrollHeight;
           }
         }
+      }
+      // 流结束收尾：最后一条事件可能没有空行结尾
+      if (!finished && eventLines.length > 0) {
+        bubble.textContent += eventLines.join("\n");
       }
       if(!bubble.textContent) addBubble("无回复", "assistant");
     } catch (err) {
@@ -162,6 +170,37 @@
         addBubble("网络错误：" + err, "assistant");
       }
     }
+
+    async function showWeek() {
+      try {
+        const resp = await fetch("/api/schedule/week", {
+          headers: { "X-Access-Token": token }
+        });
+        if (resp.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          alert("口令错误，请刷新页面重新输入");
+          return;
+        }
+        const days = await resp.json();
+        const lines = [];
+        for (const day of days) {
+          lines.push(day.weekday + " " + day.date + "（" + day.status + "）");
+          if (!day.courses.length) {
+            lines.push("  （无）");
+          } else {
+            for (const c of day.courses) {
+              lines.push(`  ${c.startTime || "?"}-${c.endTime || "?"} ${c.title} ${c.teacher || ""} ${c.location || ""}`);
+            }
+          }
+        }
+        addBubble(lines.join("\n"), "assistant");
+      } catch (err) {
+        addBubble("网络错误：" + err, "assistant");
+      }
+    }
+
+    document.getElementById("weekBtn").onclick = showWeek;
+
 
     document.getElementById("showItems").onclick = showItems;
 

@@ -180,7 +180,7 @@ class AssistantServiceTest {
                 "08:00", "09:40", today, null), 1);
         AssistantService service = newService(llm);
         service.handle("今天有什么课？");
-        assertTrue(llm.lastUserPrompt.contains("今天("), "应包含今天课程段: " + llm.lastUserPrompt);
+        assertTrue(llm.lastUserPrompt.contains("的课程"), "应包含课程段: " + llm.lastUserPrompt);
         assertTrue(llm.lastUserPrompt.contains("高数"), "应包含课程名: " + llm.lastUserPrompt);
     }
 

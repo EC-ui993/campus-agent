@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** 核心编排：意图分类 → 记录/提问/纠正 三条分支。 */
 public class AssistantService {
@@ -73,11 +75,12 @@ public class AssistantService {
                     rows.add(s.toMap());
                 }
                 String context = rows.isEmpty()?"（数据库为空，没有任何记录）":MAPPER.writeValueAsString(rows);
-                String weekdayLabel = "周" + "一二三四五六日".charAt(LocalDate.now().getDayOfWeek().getValue() - 1);
-                String todaySection = todaySection();
+                LocalDate target = resolveDate(input);
+                String weekdayLabel = "周" + "一二三四五六日".charAt(target.getDayOfWeek().getValue() - 1);
+                String courseSection = sectionFor(target);
                 StringBuilder acc = new StringBuilder();
                 llm.chatStream(Prompts.ANSWER,"【数据库内容】\n" + context
-                        + "\n\n【今天(" + LocalDate.now() + " " + weekdayLabel + ")的课程，已应用临时变动】\n" + todaySection
+                        + "\n\n【" + target + " " + weekdayLabel + "的课程，已应用临时变动】\n" + courseSection
                         + "\n\n【用户问题】\n" + input,delta -> {acc.append(delta);onDelta.accept(delta);});
                 String reply = acc.toString();
                 repo.insertMessage("assistant", reply);
@@ -129,10 +132,11 @@ public class AssistantService {
         } catch (JsonProcessingException e) {
             throw new RuntimeException("序列化失败: " + e.getMessage(), e);
         }
-        String weekdayLabel = "周" + "一二三四五六日".charAt(LocalDate.now().getDayOfWeek().getValue() - 1);
-        String todaySection = todaySection();
+        LocalDate target = resolveDate(input);
+        String weekdayLabel = "周" + "一二三四五六日".charAt(target.getDayOfWeek().getValue() - 1);
+        String courseSection = sectionFor(target);
         String reply = llm.chat(Prompts.ANSWER, "【数据库内容】\n" + context
-                + "\n\n【今天(" + LocalDate.now() + " " + weekdayLabel + ")的课程，已应用临时变动】\n" + todaySection
+                + "\n\n【" + target + " " + weekdayLabel + "的课程，已应用临时变动】\n" + courseSection
                 + "\n\n【用户问题】\n" + input);
         try {
             repo.insertMessage("assistant", reply);
@@ -292,10 +296,38 @@ public class AssistantService {
         };
     }
 
-    private String todaySection() {
+    private LocalDate resolveDate(String input) {
+        LocalDate today = LocalDate.now();
+        if (input.contains("后天")) return today.plusDays(2);
+        if (input.contains("明天")) return today.plusDays(1);
+        if (input.contains("昨天")) return today.minusDays(1);
+        Matcher m = Pattern.compile("(\\d{4})[-年](\\d{1,2})[-月](\\d{1,2})日?").matcher(input);
+        if (m.find()) {
+            return LocalDate.of(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)));
+        }
+        Matcher md = Pattern.compile("(\\d{1,2})月(\\d{1,2})[日号]").matcher(input);
+        if (md.find()) {
+            return LocalDate.of(today.getYear(), Integer.parseInt(md.group(1)), Integer.parseInt(md.group(2)));
+        }
+
+        String[] weekNames = {"一", "二", "三", "四", "五", "六", "日"};
+        for (int i = 0; i < 7; i++) {
+            if (input.contains("周" + weekNames[i]) || input.contains("星期" + weekNames[i])) {
+                int target = i + 1;
+                LocalDate d = today;
+                for (int j = 0; j < 7; j++) {
+                    if (d.getDayOfWeek().getValue() == target) return d;
+                    d = d.plusDays(1);
+                }
+            }
+        }
+        return today;
+    }
+
+    private String sectionFor(LocalDate date) {
         try {
             String weekLine;
-            var weekOpt = repo.weekOf(LocalDate.now());
+            var weekOpt = repo.weekOf(date);
             if (weekOpt.isEmpty() || weekOpt.get() == -1) {
                 weekLine = "（未设置学期信息，无法按周次过滤课程；说“本学期从X月X日开始，共N周”即可设置）";
             } else {
@@ -306,16 +338,16 @@ public class AssistantService {
                 } else if (w > sem.totalWeeks()) {
                     weekLine = "（假期中，本学期共 " + sem.totalWeeks() + " 周已结束）";
                 } else {
-                    weekLine = "今天是本学期第 " + w + " 周（共 " + sem.totalWeeks() + " 周）";
+                    weekLine = "该日是第 " + w + " 周（共 " + sem.totalWeeks() + " 周）";
                 }
             }
-            List<CourseOccurrence> todayCourses = repo.coursesOn(LocalDate.now());
-            String courses = todayCourses.isEmpty()
-                    ? "（今天没有安排课程）"
-                    : MAPPER.writeValueAsString(todayCourses.stream().map(CourseOccurrence::toMap).toList());
-            return weekLine + "\n" + courses;
+            List<CourseOccurrence> courses = repo.coursesOn(date);
+            String courseText = courses.isEmpty()
+                    ? "（当天没有安排课程）"
+                    : MAPPER.writeValueAsString(courses.stream().map(CourseOccurrence::toMap).toList());
+            return weekLine + "\n" + courseText;
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("序列化今日课程失败: " + e.getMessage(), e);
+            throw new RuntimeException("序列化课程失败: " + e.getMessage(), e);
         }
     }
 
