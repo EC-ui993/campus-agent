@@ -89,7 +89,6 @@ public class ChatController {
                         throw new RuntimeException("SSE 发送失败", e);
                     }
                 });
-                emitter.send(SseEmitter.event().name("done").data(full));
                 emitter.complete();
             } catch (Exception e) {
                 emitter.completeWithError(e);

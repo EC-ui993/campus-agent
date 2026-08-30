@@ -110,7 +110,6 @@
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let finished = false;
       let eventLines = [];          // 当前这条 SSE 事件的 data 行内容
       while (true) {
         const { done, value } = await reader.read();
@@ -120,17 +119,12 @@
         buffer = parts.pop();
         for (const part of parts) {
           const line = part.trim();
-          if (line.startsWith("event:done")) {
-            finished = true;          // done 的数据 = 流式内容重复，不再显示
-            eventLines = [];
-            continue;
-          }
           if (line.startsWith("data:")) {
-            if (!finished) eventLines.push(line.substring(5).trim());
+            eventLines.push(line.substring(5).trim());
             continue;
           }
           // 空行 = 一条 SSE 事件结束：把事件内容按 \n 拼回，一次性追加
-          if (line === "" && !finished && eventLines.length > 0) {
+          if (line === "" && eventLines.length > 0) {
             bubble.textContent += eventLines.join("\n");
             eventLines = [];
             messages.scrollTop = messages.scrollHeight;
@@ -138,7 +132,7 @@
         }
       }
       // 流结束收尾：最后一条事件可能没有空行结尾
-      if (!finished && eventLines.length > 0) {
+      if (eventLines.length > 0) {
         bubble.textContent += eventLines.join("\n");
       }
       if(!bubble.textContent) addBubble("无回复", "assistant");
