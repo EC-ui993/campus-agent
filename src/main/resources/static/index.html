@@ -7,23 +7,42 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: system-ui, sans-serif; background: #f5f6f8; height: 100vh; display: flex; flex-direction: column; }
-  header { background: #2c3e50; color: #fff; padding: 12px 16px; font-weight: 600; }
+  header { background: #2c3e50; color: #fff; padding: 10px 12px; font-weight: 600; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+  .header-btns { display: flex; gap: 6px; }
+  header button {
+    background: rgba(255,255,255,.08); color: rgba(255,255,255,.92);
+    border: 1px solid rgba(255,255,255,.18); border-radius: 6px;
+    padding: 4px 10px; font-size: 13px; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, transform .1s ease-out;
+  }
+  header button:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3); }
+  header button:active { transform: translateY(1px) scale(.97); background: rgba(255,255,255,.22); }
   #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
   .bubble { max-width: 78%; padding: 10px 14px; border-radius: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
   .user { align-self: flex-end; background: #409eff; color: #fff; border-bottom-right-radius: 4px; }
   .assistant { align-self: flex-start; background: #fff; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   footer { display: flex; gap: 8px; padding: 10px; background: #fff; border-top: 1px solid #e5e6eb; }
   #input { flex: 1; border: 1px solid #d0d3d9; border-radius: 8px; padding: 10px 12px; font-size: 15px; }
-  #send { border: none; background: #409eff; color: #fff; border-radius: 8px; padding: 0 20px; font-size: 15px; cursor: pointer; }
-    #report { white-space: pre-wrap; background:#fff; border-bottom:1px solid #e5e6eb; padding:12px 16px; }
+  #send { border: none; background: #409eff; color: #fff; border-radius: 8px; padding: 0 20px; font-size: 15px; cursor: pointer; transition: background .15s ease, transform .1s ease-out; }
+  #send:hover { background: #66b1ff; }
+  #send:active { transform: translateY(1px); }
+  #report { background:#fff; border-bottom:1px solid #e5e6eb; }
+  #reportBody { white-space: pre-wrap; padding:12px 16px 4px; overflow:hidden; }
+  #reportGrip { display:flex; justify-content:center; align-items:center; gap:6px; padding:6px 0; cursor:ns-resize; touch-action:none; user-select:none; }
+  #reportGrip span { width:36px; height:4px; border-radius:2px; background:#d0d3d9; }
 </style>
 </head>
 <body>
-<header>🏫 校园助手 <button id="weekBtn" style="float:right;margin-right:8px;">本周课表</button>
-  <button id="importBtn" style="float:right;margin-right:8px;">📥 导入课表</button>
-  <button id="showItems" style="float:right;margin-right:8px;">查看记录</button>
+<header><span class="app-title">🏫 校园助手</span><span class="header-btns">
+  <button id="weekBtn">本周课表</button>
+  <button id="importBtn">📥 导入课表</button>
+  <button id="showItems">查看记录</button>
+</span>
   <input type="file" id="importFile" accept=".xls,.xlsx" style="display:none"></header>
-<div id="report" style="display:none;"></div>
+<div id="report" style="display:none;">
+  <div id="reportBody"></div>
+  <div id="reportGrip"><span></span><span></span></div>
+</div>
 <div id="importResult" style="display:none; padding:8px 16px; background:#fffbe6; border-bottom:1px solid #e5e6eb"></div>
 <div id="messages"></div>
 <footer>
@@ -73,8 +92,34 @@
         const data = await resp.json();
         const el = document.getElementById("report");
         el.style.display = "block";
-        el.textContent = data.content;
+        document.getElementById("reportBody").textContent = data.content;
+        initReportGrip();
       } catch (e) { /* 早报失败不阻塞聊天 */ }
+    }
+
+    /** 早报拖拽收起/展开：上滑隐藏、下滑显示，底部两条短线是手柄。 */
+    function initReportGrip() {
+      const body = document.getElementById("reportBody");
+      const grip = document.getElementById("reportGrip");
+      const maxH = body.scrollHeight;
+      const minH = 0;
+      body.style.height = maxH + "px";
+      let startY = 0, startH = 0, dragging = false;
+      grip.addEventListener("pointerdown", (e) => {
+        dragging = true;
+        startY = e.clientY;
+        startH = body.getBoundingClientRect().height;
+        grip.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      grip.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const h = Math.max(minH, Math.min(maxH, startH + (e.clientY - startY)));
+        body.style.height = h + "px";
+      });
+      const stop = () => { dragging = false; };
+      grip.addEventListener("pointerup", stop);
+      grip.addEventListener("pointercancel", stop);
     }
     loadReport();
 
