@@ -88,9 +88,21 @@ public class AssistantService {
             }
             else{
                 return switch (intent){
-                    case "correction" -> correct(input);
-                    case "delete" -> delete(input);
-                    default -> record(input, messageId);
+                    case "correction" -> {
+                        String reply = correct(input);
+                        onDelta.accept(reply);
+                        yield reply;
+                    }
+                    case "delete" -> {
+                        String reply = delete(input);
+                        onDelta.accept(reply);
+                        yield reply;
+                    }
+                    default -> {
+                        String reply = record(input, messageId);
+                        onDelta.accept(reply);
+                        yield reply;
+                    }
                 };
             }
         }catch(SQLException e){
@@ -148,7 +160,8 @@ public class AssistantService {
 
     private String correct(String input) {
         try {
-            String recordsJson = MAPPER.writeValueAsString(recordsWithSeq());
+            List<Map<String,Object>> snapshot = recordsWithSeq();
+            String recordsJson = MAPPER.writeValueAsString(snapshot);
             String prompt = Prompts.CORRECT.replace("{records}", recordsJson);
             String json = llm.chatJson(prompt, input);
             JsonNode n = MAPPER.readTree(json);
@@ -159,7 +172,7 @@ public class AssistantService {
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
-            Optional<Long> realIdOpt = resolveIdBySeq(type, seq);
+            Optional<Long> realIdOpt = resolveIdBySeq(snapshot,type, seq);
             if (realIdOpt.isEmpty()) {
                 String reply = "没找到编号为 " + seq + " 的" + type + " 记录。";
                 repo.insertMessage("assistant", reply);
@@ -202,7 +215,8 @@ public class AssistantService {
 
     private String delete(String input) {
         try {
-            String recordsJson = MAPPER.writeValueAsString(recordsWithSeq());
+            List<Map<String,Object>> snapshot = recordsWithSeq();
+            String recordsJson = MAPPER.writeValueAsString(snapshot);
             String prompt = Prompts.DELETE.replace("{records}", recordsJson);
             String json = llm.chatJson(prompt, input);
             JsonNode n = MAPPER.readTree(json);
@@ -213,7 +227,7 @@ public class AssistantService {
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
-            Optional<Long> realIdOpt = resolveIdBySeq(type, seq);
+            Optional<Long> realIdOpt = resolveIdBySeq(snapshot, type, seq);
             if (realIdOpt.isEmpty()) {
                 String reply = "没找到编号为 " + seq + " 的" + type + " 记录。";
                 repo.insertMessage("assistant", reply);
@@ -250,18 +264,16 @@ public class AssistantService {
     }
 
     /** 根据类型 + 显示序号，解析出真实数据库 id。 */
-    private Optional<Long> resolveIdBySeq(String type, long seq) {
+    private Optional<Long> resolveIdBySeq(List<Map<String, Object>> snapshot, String type, long seq) {
         long index = 0;
-        for (StoredItem s : repo.allItems()) {
-            if (s.type().equals(type)) {
+        for (Map<String,Object> m: snapshot) {
+            if (type.equals(m.get("type"))) {
                 index++;
-                if (index == seq) return Optional.of(s.id());
+                if (index == seq) return Optional.of((Long) m.get("id"));
             }
         }
         return Optional.empty();
     }
-
-
 
     /** 纠正值非空则用之，否则保留原值。 */
     private String pick(String newValue, String oldValue) {
