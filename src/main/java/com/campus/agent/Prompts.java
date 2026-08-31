@@ -24,10 +24,10 @@ public final class Prompts {
             JSON 字段：
             - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / semester_setting(学期设置) / event(日程活动)。
               停课、调课、换教室这类“某门课某天的变动”归为 course_override；每周固定的课程安排归为 course；设置学期开始日期和总周数归为 semester_setting。
-            - title: 必填，一句话简短标题
+            - title: 必填，不超过 15 字的简短标题。作业填作业名/编号（如"习题5.2""实验报告"），考试填考试名（如"英语期中"），课程填课程名，待办填事项名。不要把要求详情写进来。
             - course: 课程名（与某门课相关才填，没有留空）
             - teacher: 老师姓名（没有留空）
-            - content: 详细内容/要求（没有留空）
+            - content: 完整内容/要求/详情（可包含标题的完整表述，如"完成习题5.2全部题目，下周一交"）。没有留空。
             - location: 地点（没有留空）
             - dueDate: 截止/考试/活动日期，格式 yyyy-MM-dd（“今天/明天/下周X”要换算成具体日期；没有则留空）
             - dueTime: 时间，格式 HH:mm（没有留空）
@@ -59,7 +59,10 @@ public final class Prompts {
              "title":"仅被纠正字段的新值，其余留空", ...其余字段同信息抽取...}
             规则：
             - 用户明确纠正的字段输出新值
-            - 用户没提到的字段输出空字符串（系统会保留原值）
+            - 字段指代规则：用户说“标题/名字改成X”→改 title；“内容/要求/详情改成X”→改 content；
+            “日期/截止/时间改成X”→改 dueDate/dueTime；“地点/教室改成X”→改 location；
+            “老师改成X”→改 teacher。未明确指代、只说“改成X”时：X 是短描述(≤15字)归 title，否则归 content。
+            - 未提及的字段输出空字符串（系统保留原值）。
             - dueDate 必须是 yyyy-MM-dd 格式，例如 2026-11-21
             - dueTime 必须是 HH:mm 格式，例如 23:59
             只输出 JSON，不要输出其他任何文字。
