@@ -204,8 +204,14 @@ public class AssistantService {
                 repo.insertMessage("assistant", reply);
                 return reply;
             }
+            List<String> changes = diffLines(cur, merged);
+            if (changes.isEmpty()) {
+                String reply = "没有需要修改的内容：这条记录目前是 " + summarize(cur);
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
             repo.updateById(merged, id);
-            String reply = "✅ 已更新：" + summarize(merged);
+            String reply = "✅ 已更新：" + typeLabel(merged.type()) + "《" + merged.title() + "》\n" + String.join("\n", changes);
             repo.insertMessage("assistant", reply);
             return reply;
         } catch (Exception e) {
@@ -297,6 +303,19 @@ public class AssistantService {
         return sb.toString();
     }
 
+    private String summarize(StoredItem item) {
+        StringBuilder sb = new StringBuilder(typeLabel(item.type()) + "《" + item.title() + "》");
+        if (item.course() != null) sb.append("（课程：").append(item.course()).append("）");
+        if (item.teacher() != null) sb.append("，老师：").append(item.teacher());
+        if (item.location() != null) sb.append("，地点：").append(item.location());
+        if (item.dueDate() != null) {
+            sb.append("，日期：").append(item.dueDate());
+            if (item.dueTime() != null) sb.append(" ").append(item.dueTime());
+        }
+        if (item.content() != null) sb.append("，详情：").append(item.content());
+        return sb.toString();
+    }
+
     private String typeLabel(String type) {
         return switch (type) {
             case "assignment" -> "作业";
@@ -363,4 +382,24 @@ public class AssistantService {
         }
     }
 
+    private List<String> diffLines(StoredItem before, ExtractedItem after){
+        List<String> lines = new ArrayList<>();
+        diff(lines, "标题", before.title(), after.title());
+        diff(lines, "课程", before.course(), after.course());
+        diff(lines, "老师", before.teacher(), after.teacher());
+        diff(lines, "内容", before.content(), after.content());
+        diff(lines, "地点", before.location(), after.location());
+        diff(lines, "日期", before.dueDate(), after.dueDate());
+        diff(lines, "时间", before.dueTime(), after.dueTime());
+        return lines;
+    }
+
+    private void diff(List<String> lines,String label,String oldVal,String newVal){
+        if(java.util.Objects.equals(oldVal,newVal)) return;;
+        lines.add(label + ": " + nvl(oldVal,"（空）") + " -> " + nvl(newVal,"（空）"));
+    }
+
+    private String nvl(String v,String dflt){
+        return (v == null || v.isBlank())?dflt:v;
+    }
 }

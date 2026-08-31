@@ -227,5 +227,42 @@ class AssistantServiceTest {
         assertTrue(reply.contains("没找到"), "应提示没找到，实际: " + reply);
     }
 
+    @Test
+    void correctionAckShowsFieldDiff() throws Exception{
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"record\"}")
+                .json(VALID_ASSIGNMENT)
+                .json("{\"intent\":\"correction\"}")
+                .json("""
+                        {"type":"assignment","id":1,"title":"习题6.1","course":"","teacher":"",
+                         "content":"","location":"","dueDate":"2026-11-21","dueTime":""}
+                        """);;
+        AssistantService service = newService(llm);
+        service.handle("高数作业习题5.2，11月20日前交");
 
+        String reply = service.handle("把作业第1条改成习题6.1，截止11月21日");
+        assertTrue(reply.startsWith("✅ 已更新"),"应该以✅ 已更新开头，实际：" + reply);
+        assertTrue(reply.contains("标题"),"应该包含标题，实际：" + reply);
+        assertTrue(reply.contains("习题5.2"),"应该包含习题5.2，实际：" + reply);
+        assertTrue(reply.contains("习题6.1"),"应该包含习题6.1，实际：" + reply);
+        assertTrue(reply.contains("2026-11-20"),"应该包含2026-11-20，实际：" + reply);
+        assertTrue(reply.contains("2026-11-21"),"应该包含2026-11-21，实际：" + reply);
+    }
+
+    @Test
+    void noOpCorrectionIsHonest() throws Exception{
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"record\"}")
+                .json(VALID_ASSIGNMENT)
+                .json("{\"intent\":\"correction\"}")
+                .json("""
+                        {"type":"assignment","id":1,"title":"","course":"","teacher":"",
+                         "content":"","location":"","dueDate":"","dueTime":""}
+                        """);
+        AssistantService service = newService(llm);
+        service.handle("高数作业习题5.2，11月20日前交");
+        String reply = service.handle("改一下");
+
+        assertTrue(reply.contains("没有需要修改"),"实际: " + reply);
+    }
 }
