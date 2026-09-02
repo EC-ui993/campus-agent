@@ -128,17 +128,44 @@ public class Database implements AutoCloseable {
               content TEXT NOT NULL,
               reason TEXT,
               created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
-              CREATE TABLE IF NOT EXISTS course_overrides(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                course_id INTEGER,
-                course_title TEXT,
-                override_date TEXT NOT NULL,
-                kind TEXT NOT NULL,
-                new_start_time TEXT,
-                new_end_time TEXT,
-                new_location TEXT,
-                note TEXT,
-                source_message_id INTEGER,
-                created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+            CREATE TABLE IF NOT EXISTS course_overrides(
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               course_id INTEGER,
+               course_title TEXT,
+               override_date TEXT NOT NULL,
+               kind TEXT NOT NULL,
+               new_start_time TEXT,
+               new_end_time TEXT,
+               new_location TEXT,
+               note TEXT,
+               source_message_id INTEGER,
+               created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+            CREATE TABLE IF NOT EXISTS internships(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              company TEXT NOT NULL,
+              position TEXT NOT NULL,
+              city TEXT,
+              salary TEXT,
+              deadline TEXT,
+              jd TEXT,
+              link TEXT,
+              status TEXT NOT NULL DEFAULT 'new',
+              source_message_id INTEGER,
+              created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+            CREATE TABLE IF NOT EXISTS profile(
+              id INTEGER PRIMARY KEY,
+              skills TEXT,
+              target_role TEXT,
+              target_city TEXT,
+              grade TEXT,
+              note TEXT,
+              updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+            
+            CREATE TABLE IF NOT EXISTS study_progress(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              study_date TEXT NOT NULL,
+              content TEXT NOT NULL,
+              source_message_id INTEGER,
+              created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));  
             """;
 }

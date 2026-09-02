@@ -3,20 +3,9 @@ package com.campus.agent.store;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.campus.agent.model.ExtractedItem;
-import com.campus.agent.store.entity.Assignment;
-import com.campus.agent.store.entity.Course;
-import com.campus.agent.store.entity.CourseOverride;
-import com.campus.agent.store.entity.Event;
-import com.campus.agent.store.entity.Exam;
-import com.campus.agent.store.entity.Semester;
-import com.campus.agent.store.entity.Todo;
-import com.campus.agent.store.mapper.AssignmentMapper;
-import com.campus.agent.store.mapper.CourseMapper;
-import com.campus.agent.store.mapper.CourseOverrideMapper;
-import com.campus.agent.store.mapper.EventMapper;
-import com.campus.agent.store.mapper.ExamMapper;
-import com.campus.agent.store.mapper.SemesterMapper;
-import com.campus.agent.store.mapper.TodoMapper;
+import com.campus.agent.model.ExtractedProfile;
+import com.campus.agent.store.entity.*;
+import com.campus.agent.store.mapper.*;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
@@ -44,11 +33,15 @@ public class ItemRepository {
     private final EventMapper eventMapper;
     private final CourseOverrideMapper courseOverrideMapper;
     private final SemesterMapper semesterMapper;
+    private final InternshipMapper internshipMapper;
+    private final ProfileMapper profileMapper;
+    private final StudyProgressMapper studyProgressMapper;
     private final DataSource dataSource;
 
     public ItemRepository(AssignmentMapper assignmentMapper, ExamMapper examMapper, TodoMapper todoMapper,
                           CourseMapper courseMapper, EventMapper eventMapper,
                           CourseOverrideMapper courseOverrideMapper, SemesterMapper semesterMapper,
+                          InternshipMapper internshipMapper, ProfileMapper profileMapper, StudyProgressMapper studyProgressMapper,
                           DataSource dataSource) {
         this.assignmentMapper = assignmentMapper;
         this.examMapper = examMapper;
@@ -57,6 +50,9 @@ public class ItemRepository {
         this.eventMapper = eventMapper;
         this.courseOverrideMapper = courseOverrideMapper;
         this.semesterMapper = semesterMapper;
+        this.internshipMapper = internshipMapper;
+        this.profileMapper = profileMapper;
+        this.studyProgressMapper = studyProgressMapper;
         this.dataSource = dataSource;
     }
 
@@ -426,5 +422,88 @@ public class ItemRepository {
                 return keys.getLong(1);
             }
         }
+    }
+
+    //internship表增删改查
+    public long insertInternship(String company, String position, String city, String salary,
+                                 String deadline, String jd, String link, long sourceMessageId){
+        Internship i = new Internship();
+        i.setCompany(company);
+        i.setPosition(position);
+        i.setCity(city);
+        i.setSalary(salary);
+        i.setDeadline(deadline);
+        i.setJd(jd);
+        i.setLink(link);
+        i.setSourceMessageId(sourceMessageId);
+        internshipMapper.insert(i);
+        return i.getId();
+    }
+
+    public List<InternshipItem> allInternships(){
+        List<InternshipItem> list = new ArrayList<>();
+        for(Internship i : internshipMapper.selectList(null)){
+            list.add(new InternshipItem(i.getId(),i.getCompany(),i.getPosition(),i.getCity(),
+                    i.getSalary(),i.getDeadline(),i.getJd(),i.getLink(),i.getStatus()));
+        }
+        return list;
+    }
+
+    public Optional<InternshipItem> findInternship(long id){
+        Internship i = internshipMapper.selectById(id);
+        if(i == null) return Optional.empty();
+        return Optional.of(new InternshipItem(i.getId(),i.getCompany(),i.getPosition(),i.getCity(),
+                i.getSalary(),i.getDeadline(),i.getJd(),i.getLink(),i.getStatus()));
+    }
+
+    public boolean deleteInternship(long id){
+        return internshipMapper.deleteById(id) == 1;
+    }
+
+    //profile表读写
+    public void setProfile(ExtractedProfile p){
+        profileMapper.deleteById(1L);
+        Profile profile = new Profile();
+        profile.setId(1L);
+        profile.setSkills(p.skills());
+        profile.setTargetRole(p.targetRole());
+        profile.setTargetCity(p.targetCity());
+        profile.setGrade(p.grade());
+        profile.setNote(p.note());
+        profileMapper.insert(profile);
+    }
+
+    public Optional<ProfileItem> profile(){
+        Profile p = profileMapper.selectById(1L);
+        if(p == null) return Optional.empty();
+        return Optional.of(new ProfileItem(p.getId(),p.getSkills(),p.getTargetRole(),
+                p.getTargetCity(),p.getGrade(),p.getNote()));
+    }
+
+    /** 仅测试用：档案表行数（单行表应始终为 1 或 0）。 */
+    public long profileCount(){
+        return profileMapper.selectCount(null);
+    }
+
+    //studyProgress表读写
+    //写一条打卡
+    public long insertStudyProgress(LocalDate studyDate,String content,long sourceMessageId){
+        StudyProgress s = new StudyProgress();
+        s.setStudyDate(studyDate.toString());
+        s.setContent(content);
+        s.setSourceMessageId(sourceMessageId);
+        studyProgressMapper.insert(s);
+        return s.getId();
+    }
+
+    /** 查 [from, to] 区间内的打卡记录（含边界），按日期升序。 */
+    public List<StudyProgressItem> studyProgressBetween(LocalDate from, LocalDate to){
+        return studyProgressMapper.selectList(new LambdaQueryWrapper<StudyProgress>()
+                        .ge(StudyProgress::getStudyDate, from.toString())
+                        .le(StudyProgress::getStudyDate, to.toString())
+                        .orderByAsc(StudyProgress::getStudyDate))
+                .stream().map(s -> new StudyProgressItem(s.getId(),
+                        LocalDate.parse(s.getStudyDate()), s.getContent()))
+                .toList();
     }
 }

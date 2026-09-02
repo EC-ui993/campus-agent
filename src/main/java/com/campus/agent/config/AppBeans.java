@@ -6,13 +6,8 @@ import com.campus.agent.service.AssistantService;
 import com.campus.agent.service.ExtractionEngine;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
-import com.campus.agent.store.mapper.AssignmentMapper;
-import com.campus.agent.store.mapper.CourseMapper;
-import com.campus.agent.store.mapper.CourseOverrideMapper;
-import com.campus.agent.store.mapper.EventMapper;
-import com.campus.agent.store.mapper.ExamMapper;
-import com.campus.agent.store.mapper.SemesterMapper;
-import com.campus.agent.store.mapper.TodoMapper;
+import com.campus.agent.store.mapper.*;
+
 import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,9 +27,10 @@ public class AppBeans {
     public ItemRepository itemRepository(AssignmentMapper assignmentMapper, ExamMapper examMapper,
                                          TodoMapper todoMapper, CourseMapper courseMapper,
                                          EventMapper eventMapper, CourseOverrideMapper courseOverrideMapper,
-                                         SemesterMapper semesterMapper, DataSource dataSource) {
+                                         SemesterMapper semesterMapper, InternshipMapper internshipMapper, ProfileMapper profileMapper,
+                                         StudyProgressMapper studyProgressMapper , DataSource dataSource) {
         return new ItemRepository(assignmentMapper, examMapper, todoMapper, courseMapper,
-                eventMapper, courseOverrideMapper, semesterMapper, dataSource);
+                eventMapper, courseOverrideMapper, semesterMapper, internshipMapper, profileMapper, studyProgressMapper, dataSource);
     }
 
     @Bean

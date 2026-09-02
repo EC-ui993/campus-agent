@@ -1,13 +1,8 @@
 package com.campus.agent.store;
 
 import com.campus.agent.model.ExtractedItem;
-import com.campus.agent.store.mapper.AssignmentMapper;
-import com.campus.agent.store.mapper.CourseMapper;
-import com.campus.agent.store.mapper.CourseOverrideMapper;
-import com.campus.agent.store.mapper.EventMapper;
-import com.campus.agent.store.mapper.ExamMapper;
-import com.campus.agent.store.mapper.SemesterMapper;
-import com.campus.agent.store.mapper.TodoMapper;
+import com.campus.agent.model.ExtractedProfile;
+import com.campus.agent.store.mapper.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +40,9 @@ class ItemRepositoryTest {
     @Autowired EventMapper eventMapper;
     @Autowired CourseOverrideMapper courseOverrideMapper;
     @Autowired SemesterMapper semesterMapper;
+    @Autowired InternshipMapper internshipsMapper;
+    @Autowired ProfileMapper profileMapper;
+    @Autowired StudyProgressMapper studyProgressMapper;
 
     @BeforeEach
     void cleanDb() {
@@ -55,6 +53,9 @@ class ItemRepositoryTest {
         todoMapper.delete(null);
         courseMapper.delete(null);
         eventMapper.delete(null);
+        internshipsMapper.delete(null);
+        profileMapper.delete(null);
+        studyProgressMapper.delete(null);
     }
 
     @Test
@@ -187,5 +188,36 @@ class ItemRepositoryTest {
         assertFalse(repo.deleteById("todo", id), "再删一次应返回 false");
     }
 
+    @Test
+    void internshipRoundTrip(){
+        long id = repo.insertInternship("字节跳动", "Java后端实习生", "北京", "200-300/天",
+                "2026-09-15", "负责XX系统开发，要求熟悉Spring Boot…", "https://example.com/jd/1", 1);
+        List<InternshipItem> all = repo.allInternships();
+        assertEquals(1, all.size());
+        assertEquals("字节跳动", all.get(0).company());
+        assertEquals("new", all.get(0).status());
+        assertTrue(repo.findInternship(id).isPresent());
+        assertTrue(repo.deleteInternship(id));
+        assertTrue(repo.allInternships().isEmpty());
+    }
 
+    @Test
+    void profileUpsertSingleRow(){
+        repo.setProfile(new ExtractedProfile("Java,SQL,Spring Boot", "Java后端实习生", "杭州", "大三", null));
+        ProfileItem p = repo.profile().orElseThrow();
+        assertEquals("Java后端实习生", p.targetRole());
+        repo.setProfile(new ExtractedProfile("Java,SQL", "Java开发", "上海", "大三", null));
+        assertEquals(1, repo.profileCount(), "应始终只有一行");
+        assertEquals("上海", repo.profile().orElseThrow().targetCity());
+    }
+
+    @Test
+    void studyProgressRangeQuery() {
+        LocalDate today = LocalDate.of(2026, 8, 31);
+        repo.insertStudyProgress(today.minusDays(1), "学了集合框架", 1);
+        repo.insertStudyProgress(today, "学了MyBatis-Plus", 2);
+        repo.insertStudyProgress(today.minusDays(10), "学了反射", 3);
+        List<StudyProgressItem> week = repo.studyProgressBetween(today.minusDays(7), today);
+        assertEquals(2, week.size());
+    }
 }

@@ -94,4 +94,32 @@ CREATE TABLE IF NOT EXISTS reports(
   content TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
 
+CREATE TABLE IF NOT EXISTS internships(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company TEXT NOT NULL,
+  position TEXT NOT NULL,
+  city TEXT,
+  salary TEXT,
+  deadline TEXT,
+  jd TEXT,
+  link TEXT,
+  status TEXT NOT NULL DEFAULT 'new',
+  source_message_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+
+CREATE TABLE IF NOT EXISTS profile(
+  id INTEGER PRIMARY KEY,
+  skills TEXT,
+  target_role TEXT,
+  target_city TEXT,
+  grade TEXT,
+  note TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
+
+CREATE TABLE IF NOT EXISTS study_progress(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  study_date TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source_message_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
 
