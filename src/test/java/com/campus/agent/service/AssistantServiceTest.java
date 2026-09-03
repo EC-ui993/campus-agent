@@ -4,13 +4,7 @@ import com.campus.agent.model.ExtractedItem;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.StoredItem;
-import com.campus.agent.store.mapper.AssignmentMapper;
-import com.campus.agent.store.mapper.CourseMapper;
-import com.campus.agent.store.mapper.CourseOverrideMapper;
-import com.campus.agent.store.mapper.EventMapper;
-import com.campus.agent.store.mapper.ExamMapper;
-import com.campus.agent.store.mapper.SemesterMapper;
-import com.campus.agent.store.mapper.TodoMapper;
+import com.campus.agent.store.mapper.*;
 import com.campus.agent.testing.FakeLlm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +45,9 @@ class AssistantServiceTest {
     @Autowired EventMapper eventMapper;
     @Autowired CourseOverrideMapper courseOverrideMapper;
     @Autowired SemesterMapper semesterMapper;
+    @Autowired InternshipMapper internshipMapper;
+    @Autowired ProfileMapper profileMapper;
+    @Autowired StudyProgressMapper studyProgressMapper;
 
     @BeforeEach
     void cleanDb() {
@@ -61,6 +58,9 @@ class AssistantServiceTest {
         todoMapper.delete(null);
         courseMapper.delete(null);
         eventMapper.delete(null);
+        internshipMapper.delete(null);
+        profileMapper.delete(null);
+        studyProgressMapper.delete(null);
     }
 
     private AssistantService newService(FakeLlm llm) {
@@ -264,5 +264,27 @@ class AssistantServiceTest {
         String reply = service.handle("改一下");
 
         assertTrue(reply.contains("没有需要修改"),"实际: " + reply);
+    }
+
+    @Test
+    void internshipFlowStoresAndDeletes() throws Exception{
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"record\"}")
+                .json("""                               
+                {"type":"internship","title":"","course":"","teacher":"",
+                 "content":"","location":"","dueDate":"","dueTime":"",
+                 "company":"字节跳动","position":"Java后端实习生","city":"北京",
+                 "salary":"200-300/天","deadline":"2026-09-15",
+                 "jd":"负责XX系统开发…","link":"https://example.com/jd/1"}
+                """)
+                .json("{\"intent\":\"delete\"}")
+                .json("{\"type\":\"internship\",\"id\":\"1\"}");
+        AssistantService service = newService(llm);
+        String reply = service.handle("字节跳动招聘Java后端实习生…");
+        assertTrue(reply.contains("实习"),"应该包含实习，实际：" + reply);
+        assertEquals(1, service.repository().allInternships().size());
+        String delReply = service.handle("删除第一条实习");
+        assertTrue(delReply.contains("字节跳动"),"应该包含实习，实际：" + delReply);
+        assertTrue(service.repository().allInternships().isEmpty());
     }
 }

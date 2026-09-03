@@ -2,6 +2,7 @@ package com.campus.agent.service;
 
 import com.campus.agent.Prompts;
 import com.campus.agent.llm.LlmClient;
+import com.campus.agent.model.ExtractedInternship;
 import com.campus.agent.model.ExtractedItem;
 import com.campus.agent.model.ExtractedOverride;
 import com.campus.agent.model.ExtractedSemesterSetting;
@@ -31,7 +32,7 @@ public class ExtractionEngine {
             try {
                 String json = llm.chatJson(Prompts.extract(), input);
                 ExtractedItem item = ExtractedItem.fromJson(json);
-                if ("course_override".equals(item.type()) || "semester_setting".equals(item.type())) {
+                if ("course_override".equals(item.type()) || "semester_setting".equals(item.type()) || "internship".equals(item.type())) {
                     return store(item, json, sourceMessageId);
                 }
                 List<String> errs = item.validate();
@@ -64,6 +65,14 @@ public class ExtractionEngine {
             if (!errs.isEmpty()) throw new RuntimeException(String.join("；", errs));
             repo.setSemester(LocalDate.parse(st.startDate()), st.totalWeeks());
             return new Outcome(true, "学期：" + st.startDate() + " 开始，共 " + st.totalWeeks() + " 周", null);
+        }
+        if ("internship".equals(item.type())){
+            ExtractedInternship in = ExtractedInternship.fromJson(json);
+            List<String> errs = in.validate();
+            if(!errs.isEmpty()) throw new RuntimeException(String.join(";",errs));
+            repo.insertInternship(in.company(),in.position(),in.city(),in.salary(),in.deadline(),
+                    in.jd(),in.link(),sourceMessageId);
+            return new Outcome(true,"实习信息录入成功",null);
         }
         repo.insert(item, sourceMessageId);
         return new Outcome(true, summarize(item), null);

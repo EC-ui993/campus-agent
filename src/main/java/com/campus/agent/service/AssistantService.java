@@ -5,11 +5,11 @@ import com.campus.agent.llm.LlmClient;
 import com.campus.agent.model.ExtractedItem;
 import com.campus.agent.model.ExtractedOverride;
 import com.campus.agent.model.ExtractedSemesterSetting;
-import com.campus.agent.store.Database;
-import com.campus.agent.store.ItemRepository;
-import com.campus.agent.store.StoredItem;
-import com.campus.agent.store.CourseOccurrence;
+import com.campus.agent.store.*;
+
 import java.time.LocalDate;
+
+import com.campus.agent.store.entity.Internship;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +28,7 @@ public class AssistantService {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Set<String> DELETABLE_TYPES =
-            Set.of("assignment", "exam", "todo", "course", "event");
+            Set.of("assignment", "exam", "todo", "course", "event", "internship");
 
     private final LlmClient llm;
     private final ItemRepository repo;
@@ -240,6 +240,18 @@ public class AssistantService {
                 return reply;
             }
             long id = realIdOpt.get();
+            if("internship".equals(type)){
+                Optional<InternshipItem> i = repo.findInternship(id);
+                if(i.isEmpty()) {
+                    String reply = "没找到编号为" + seq + "的实习记录";
+                    repo.insertMessage("assistant",reply);
+                    return reply;
+                }
+                repo.deleteInternship(id);
+                String reply = "🗑️ 已删除：实习《" + i.get().company() + " " + i.get().position() + "》。删除不可恢复，录错了可重新录入。";
+                repo.insertMessage("assistant", reply);
+                return reply;
+            }
             Optional<StoredItem> cur = repo.getById(type, id);
             if (cur.isEmpty()) {
                 String reply = "没找到编号为 " + seq + " 的" + type + " 记录。";
@@ -264,6 +276,15 @@ public class AssistantService {
             Map<String, Object> m = s.toMap();
             int seq = counters.merge(s.type(), 1, Integer::sum);
             m.put("seq", seq);
+            result.add(m);
+        }
+
+        for(InternshipItem i : repo.allInternships()){
+            Map<String,Object> m = i.toMap();
+            m.put("type", "internship");
+            m.put("title",i.company() + " " + i.position());
+            int seq = counters.merge("internship",1,Integer::sum);
+            m.put("seq",seq);
             result.add(m);
         }
         return result;

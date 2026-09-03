@@ -22,7 +22,7 @@ public final class Prompts {
     private static final String EXTRACT_TEMPLATE = """
             你是校园助手的信息抽取器。从用户消息中抽取结构化信息，只输出 JSON，不要输出其他内容。
             JSON 字段：
-            - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / semester_setting(学期设置) / event(日程活动)。
+            - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / semester_setting(学期设置) / event(日程活动) / internship(实习/招聘信息：如岗位 JD)。
               停课、调课、换教室这类“某门课某天的变动”归为 course_override；每周固定的课程安排归为 course；设置学期开始日期和总周数归为 semester_setting。
             - title: 必填，不超过 15 字的简短标题。作业填作业名/编号（如"习题5.2""实验报告"），考试填考试名（如"英语期中"），课程填课程名，待办填事项名。不要把要求详情写进来。
             - course: 课程名（与某门课相关才填，没有留空）
@@ -31,17 +31,24 @@ public final class Prompts {
             - location: 地点（没有留空）
             - dueDate: 截止/考试/活动日期，格式 yyyy-MM-dd（“今天/明天/下周X”要换算成具体日期；没有则留空）
             - dueTime: 时间，格式 HH:mm（没有留空）
-              - startTime: 课程/日程开始时间，格式 HH:mm（没有则留空）
-              - endTime: 课程/日程结束时间，格式 HH:mm（没有则留空）
-              - weekday: 整数 1=周一…7=周日（仅 course 用，没有留空）
-              - weeks: 周次范围如 "1-16"（仅 course 用，没有留空）
-              - courseTitle: 被变动的课程名（仅 course_override 用）
-              - overrideDate: 变动生效的日期 yyyy-MM-dd（仅 course_override 用）
-              - kind: cancel(停课) 或 move(调时间/换地点)（仅 course_override 用）
-              - newStartTime/newEndTime/newLocation: 变动后的新时间地点（仅 move 用）
-              - note: 变动备注（没有留空）
-              - startDate: 学期开始日期 yyyy-MM-dd（仅 semester_setting 用）
-              - totalWeeks: 学期总周数（整数，仅 semester_setting 用）
+            - startTime: 课程/日程开始时间，格式 HH:mm（没有则留空）
+            - endTime: 课程/日程结束时间，格式 HH:mm（没有则留空）
+            - weekday: 整数 1=周一…7=周日（仅 course 用，没有留空）
+            - weeks: 周次范围如 "1-16"（仅 course 用，没有留空）
+            - courseTitle: 被变动的课程名（仅 course_override 用）
+            - overrideDate: 变动生效的日期 yyyy-MM-dd（仅 course_override 用）
+            - kind: cancel(停课) 或 move(调时间/换地点)（仅 course_override 用）
+            - newStartTime/newEndTime/newLocation: 变动后的新时间地点（仅 move 用）
+            - note: 变动备注（没有留空）
+            - startDate: 学期开始日期 yyyy-MM-dd（仅 semester_setting 用）
+            - totalWeeks: 学期总周数（整数，仅 semester_setting 用）
+            - company: 公司名（仅 internship 用，必填）
+            - position: 岗位名（仅 internship 用，必填）
+            - city: 工作城市（仅 internship 用）
+            - salary: 薪资（仅 internship 用）
+            - deadline: 投递截止日期 yyyy-MM-dd（仅 internship 用）
+            - jd: 岗位要求原文（仅 internship 用，尽量完整保留）
+            - link: 招聘链接（仅 internship 用）
             今天是 {today}。
             """;
 

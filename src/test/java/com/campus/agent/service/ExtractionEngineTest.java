@@ -1,13 +1,7 @@
 package com.campus.agent.service;
 
 import com.campus.agent.store.ItemRepository;
-import com.campus.agent.store.mapper.AssignmentMapper;
-import com.campus.agent.store.mapper.CourseMapper;
-import com.campus.agent.store.mapper.CourseOverrideMapper;
-import com.campus.agent.store.mapper.EventMapper;
-import com.campus.agent.store.mapper.ExamMapper;
-import com.campus.agent.store.mapper.SemesterMapper;
-import com.campus.agent.store.mapper.TodoMapper;
+import com.campus.agent.store.mapper.*;
 import com.campus.agent.testing.FakeLlm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +35,9 @@ class ExtractionEngineTest {
     @Autowired EventMapper eventMapper;
     @Autowired CourseOverrideMapper courseOverrideMapper;
     @Autowired SemesterMapper semesterMapper;
+    @Autowired InternshipMapper internshipMapper;
+    @Autowired ProfileMapper profileMapper;
+    @Autowired StudyProgressMapper studyProgressMapper;
 
     @BeforeEach
     void cleanDb() {
@@ -51,6 +48,9 @@ class ExtractionEngineTest {
         todoMapper.delete(null);
         courseMapper.delete(null);
         eventMapper.delete(null);
+        internshipMapper.delete(null);
+        profileMapper.delete(null);
+        studyProgressMapper.delete(null);
     }
 
     private ExtractionEngine engine(FakeLlm llm) {
@@ -95,5 +95,20 @@ class ExtractionEngineTest {
                 """);
         ExtractionEngine.Outcome o = engine(llm).extractAndStore("高数停课", 1);
         assertTrue(o.ok());
+    }
+
+    @Test
+    void internshipBranchWritesInternship(){
+        FakeLlm llm =new FakeLlm().json("""
+            {"type":"internship","title":"","course":"","teacher":"",
+             "content":"","location":"","dueDate":"","dueTime":"",
+             "company":"字节跳动","position":"Java后端实习生","city":"北京",
+             "salary":"200-300/天","deadline":"2026-09-15",
+             "jd":"负责XX系统开发","link":"https://example.com/jd/1"}
+            """);
+        ExtractionEngine.Outcome o = engine(llm).extractAndStore("字节跳动招聘Java后端实习生",1);
+        assertTrue(o.ok(), "应成功: " + o.error());
+        assertEquals(1, repo.allInternships().size());
+        assertEquals("字节跳动", repo.allInternships().get(0).company());
     }
 }
