@@ -4,7 +4,7 @@
 
 **Goal:** 求职主战场能力：① 粘贴实习 JD → 结构化入库（公司/岗位/城市/薪资/截止/JD原文/链接），可查、可删；② 求职档案（技能/目标岗位/城市/年级）单行配置；③ 每日学习打卡入库；④ 三个按需能力：匹配度分析、根据 JD 生成学习计划、每周复盘（均流式输出）。
 
-**Architecture:** 沿用既有模式三件套（新表 + 实体/Mapper + 独立抽取 record + engine 分支）。`internships`/`profile`(单行)/`study_progress` 三张新表；`ExtractedInternship`/`ExtractedProfile`/`ExtractedStudyLog` 三个新 record；CLASSIFY 增加 match_analysis/study_plan/weekly_review 三个意图走流式回答。v1 不做：定时搜集、任务清单式计划表（study_plan 表后置）、状态标记、JD 去重。
+**Architecture:** 沿用既有模式三件套（新表 + 实体/Mapper + 独立抽取 record + engine 分支）。`internships`/`profile`(单行)/`study_progress` 三张新表；`ExtractedInternship`/`ExtractedProfile`/`ExtractedStudyProgress` 三个新 record；CLASSIFY 增加 match_analysis/study_plan/weekly_review 三个意图走流式回答。v1 不做：定时搜集、任务清单式计划表（study_plan 表后置）、状态标记、JD 去重。
 
 **Tech Stack:** 不变。
 
@@ -22,8 +22,8 @@
 ├─ src/main/java/com/campus/agent/store/entity/  Internship.java/Profile.java/StudyProgress.java   新
 ├─ src/main/java/com/campus/agent/store/mapper/  InternshipMapper/ProfileMapper/StudyProgressMapper 新
 ├─ src/main/java/com/campus/agent/store/ItemRepository.java    +实习/档案/打卡读写、findInternship/deleteInternship
-├─ src/main/java/com/campus/agent/store/InternshipItem.java / ProfileItem.java / StudyLogItem.java   新读模型
-├─ src/main/java/com/campus/agent/model/ExtractedInternship.java / ExtractedProfile.java / ExtractedStudyLog.java   新
+├─ src/main/java/com/campus/agent/store/InternshipItem.java / ProfileItem.java / StudyProgressItem.java   新读模型
+├─ src/main/java/com/campus/agent/model/ExtractedInternship.java / ExtractedProfile.java / ExtractedStudyProgress.java   新
 ├─ src/main/java/com/campus/agent/model/ExtractedItem.java    VALID_TYPES +3
 ├─ src/main/java/com/campus/agent/Prompts.java    EXTRACT +3 类型；CLASSIFY +3 意图；新增 3 个求职提示词
 ├─ src/main/java/com/campus/agent/service/ExtractionEngine.java     +3 分支
@@ -109,19 +109,19 @@ void profileUpsertSingleRow() {
 }
 
 @Test
-void studyLogRangeQuery() {
+void studyProgressRangeQuery() {
     LocalDate today = LocalDate.of(2026, 8, 31);
-    repo.insertStudyLog(today.minusDays(1), "学了集合框架", 1);
-    repo.insertStudyLog(today, "学了MyBatis-Plus", 2);
-    repo.insertStudyLog(today.minusDays(10), "学了反射", 3);
-    List<StudyLogItem> week = repo.studyLogsBetween(today.minusDays(7), today);
+    repo.insertStudyProgress(today.minusDays(1), "学了集合框架", 1);
+    repo.insertStudyProgress(today, "学了MyBatis-Plus", 2);
+    repo.insertStudyProgress(today.minusDays(10), "学了反射", 3);
+    List<StudyProgressItem> week = repo.studyProgressBetween(today.minusDays(7), today);
     assertEquals(2, week.size());
 }
 ```
 
 Run → 红。
 
-- [ ] **Step 3: 实现**（实体三个 + Mapper 三个 + 读模型三个 + repo 方法：insertInternship/allInternships/findInternship/deleteInternship/setProfile(INSERT OR REPLACE 同 semester 模式)/profile/insertStudyLog/studyLogsBetween；`profileCountForTest` 若测试需要可换成公开的 `profileCount()` 或去掉该断言改为"查询后验证单行语义"——导师与学员商量）
+- [ ] **Step 3: 实现**（实体三个 + Mapper 三个 + 读模型三个 + repo 方法：insertInternship/allInternships/findInternship/deleteInternship/setProfile(INSERT OR REPLACE 同 semester 模式)/profile/insertStudyProgress/studyProgressBetween；`profileCountForTest` 若测试需要可换成公开的 `profileCount()` 或去掉该断言改为"查询后验证单行语义"——导师与学员商量）
 
 - [ ] **Step 4: 验证 + Commit**：新测试绿 → 全量绿。Commit：`feat: internships, profile and study_progress tables with repository methods`
 
@@ -182,25 +182,25 @@ Run → 红。
 
 ---
 
-## Task 5: study_log 摄入（每日打卡）
+## Task 5: study_progress 摄入（每日打卡）
 
-**Files:** ExtractedStudyLog.java、ExtractedItem.java（VALID_TYPES +"study_log"）、Prompts.java、ExtractionEngine.java、测试
+**Files:** ExtractedStudyProgress.java、ExtractedItem.java（VALID_TYPES +"study_progress"）、Prompts.java、ExtractionEngine.java、测试
 
 - [ ] **Step 1: 讲概念**：打卡日期**默认今天**（"今天学了XX"没说日期 → study_date=今天；说"昨天学了XX"→ LLM 换算成日期）。日期默认值是产品友好性，不是技术技巧。
 
-- [ ] **Step 2: 学员仿写 ExtractedStudyLog**（字段 studyDate/content；validate：content 必填；studyDate 若空→允许，engine 分支里用 LocalDate.now() 兜底；若有值须 yyyy-MM-dd。导师核对）
+- [ ] **Step 2: 学员仿写 ExtractedStudyProgress**（字段 studyDate/content；validate：content 必填；studyDate 若空→允许，engine 分支里用 LocalDate.now() 兜底；若有值须 yyyy-MM-dd。导师核对）
 
 - [ ] **Step 3: Prompts.EXTRACT 增补**
 
 ```
-- type 取值增加 study_log(学习打卡：如"今天学了集合框架一小时")
-- studyDate: 学习日期 yyyy-MM-dd（仅 study_log 用；"今天/昨天"换算成日期；没提日期留空，系统按今天记）
-- content: 学习内容（仅 study_log 用，必填）
+- type 取值增加 study_progress(学习打卡：如"今天学了集合框架一小时")
+- studyDate: 学习日期 yyyy-MM-dd（仅 study_progress 用；"今天/昨天"换算成日期；没提日期留空，系统按今天记）
+- content: 学习内容（仅 study_progress 用，必填）
 ```
 
-- [ ] **Step 4: engine 分支**：→ ExtractedStudyLog.fromJson+validate → `repo.insertStudyLog(studyDate 空 ? LocalDate.now() : parse, content, msgId)` → Outcome ok，"打卡：2026-08-31 学了集合框架"。
+- [ ] **Step 4: engine 分支**：→ ExtractedStudyProgress.fromJson+validate → `repo.insertStudyProgress(studyDate 空 ? LocalDate.now() : parse, content, msgId)` → Outcome ok，"打卡：2026-08-31 学了集合框架"。
 
-- [ ] **Step 5: 测试 + Commit**：含"没提日期 → 记今天"的用例（用 FakeLlm 返回 studyDate 空的 JSON，断言 study_date=今天）。Commit：`feat: study_log extraction type with today-default date`
+- [ ] **Step 5: 测试 + Commit**：含"没提日期 → 记今天"的用例（用 FakeLlm 返回 studyDate 空的 JSON，断言 study_date=今天）。Commit：`feat: study_progress extraction type with today-default date`
 
 ---
 
@@ -258,7 +258,7 @@ if (latest.isEmpty()) return "还没有实习记录，先粘贴一条 JD 吧。"
 String profileJson = repo.profile().map(ProfileItem::toMap)
         .map(this::toJson).orElse("（未设置求职档案，建议先说“我的技能是…”设置）");
 // study_plan → Prompts.STUDY_PLAN；match_analysis → Prompts.MATCH_ANALYSIS（替换 {profile}/{jd} 占位）
-// weekly_review：repo.studyLogsBetween(today-7, today) → JSON 数组（空则提示"本周还没有打卡"）
+// weekly_review：repo.studyProgressBetween(today-7, today) → JSON 数组（空则提示"本周还没有打卡"）
 ```
 
 （三个意图的完整回复同样存 messages；流式回调与 question 一致。）
