@@ -22,7 +22,8 @@ public final class Prompts {
     private static final String EXTRACT_TEMPLATE = """
             你是校园助手的信息抽取器。从用户消息中抽取结构化信息，只输出 JSON，不要输出其他内容。
             JSON 字段：
-            - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / semester_setting(学期设置) / event(日程活动) / internship(实习/招聘信息：如岗位 JD)。
+            - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / semester_setting(学期设置) / event(日程活动) / 
+              internship(实习/招聘信息：如岗位 JD) / profile_setting(设置求职档案：技能/目标岗位/城市/年级)。
               停课、调课、换教室这类“某门课某天的变动”归为 course_override；每周固定的课程安排归为 course；设置学期开始日期和总周数归为 semester_setting。
             - title: 必填，不超过 15 字的简短标题。作业填作业名/编号（如"习题5.2""实验报告"），考试填考试名（如"英语期中"），课程填课程名，待办填事项名。不要把要求详情写进来。
             - course: 课程名（与某门课相关才填，没有留空）
@@ -44,11 +45,15 @@ public final class Prompts {
             - totalWeeks: 学期总周数（整数，仅 semester_setting 用）
             - company: 公司名（仅 internship 用，必填）
             - position: 岗位名（仅 internship 用，必填）
-            - city: 工作城市（仅 internship 用）
+            - city: 工作城市（仅 internship 用，多个城市用顿号/逗号分隔）
             - salary: 薪资（仅 internship 用）
             - deadline: 投递截止日期 yyyy-MM-dd（仅 internship 用）
             - jd: 岗位要求原文（仅 internship 用，尽量完整保留）
             - link: 招聘链接（仅 internship 用）
+            - skills: 技能列表（仅 profile_setting 用，如"Java、SQL、Spring Boot"）
+            - targetRole: 目标岗位（仅 profile_setting 用）
+            - targetCity: 目标城市（仅 profile_setting 用）
+            - grade: 年级（仅 profile_setting 用）
             今天是 {today}。
             """;
 

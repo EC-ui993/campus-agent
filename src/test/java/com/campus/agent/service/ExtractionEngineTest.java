@@ -1,6 +1,8 @@
 package com.campus.agent.service;
 
+import com.campus.agent.model.ExtractedProfile;
 import com.campus.agent.store.ItemRepository;
+import com.campus.agent.store.ProfileItem;
 import com.campus.agent.store.mapper.*;
 import com.campus.agent.testing.FakeLlm;
 import org.junit.jupiter.api.BeforeEach;
@@ -99,7 +101,7 @@ class ExtractionEngineTest {
 
     @Test
     void internshipBranchWritesInternship(){
-        FakeLlm llm =new FakeLlm().json("""
+        FakeLlm llm = new FakeLlm().json("""
             {"type":"internship","title":"","course":"","teacher":"",
              "content":"","location":"","dueDate":"","dueTime":"",
              "company":"字节跳动","position":"Java后端实习生","city":"北京",
@@ -110,5 +112,36 @@ class ExtractionEngineTest {
         assertTrue(o.ok(), "应成功: " + o.error());
         assertEquals(1, repo.allInternships().size());
         assertEquals("字节跳动", repo.allInternships().get(0).company());
+    }
+
+    @Test
+    void profileSettingBranchWritesSingleRow(){
+        FakeLlm llm = new FakeLlm().json("""
+            {"type":"profile_setting","title":"","course":"","teacher":"",
+             "content":"","location":"","dueDate":"","dueTime":"",
+             "skills":"Java、SQL","targetRole":"Java后端实习生","targetCity":"杭州",
+             "grade":"大三","note":""}
+            """);
+        ExtractionEngine.Outcome o = engine(llm).extractAndStore("我的技能是Java和SQL，目标Java后端实习生，想在杭州，大三", 1);
+        assertTrue(o.ok(),"应成功: " + o.error());
+        ProfileItem p = repo.profile().orElseThrow();
+        assertEquals("Java后端实习生", p.targetRole());
+        assertEquals("杭州", p.targetCity());
+    }
+
+    @Test
+    void emptyProfileGoesToRawInbox(){
+        FakeLlm llm = new FakeLlm().json("""
+            {"type":"profile_setting","title":"","course":"","teacher":"",
+             "content":"","location":"","dueDate":"","dueTime":"",
+             "skills":"","targetRole":"","targetCity":"","grade":"","note":""}
+            """).json("""
+            {"type":"profile_setting","title":"","course":"","teacher":"",
+             "content":"","location":"","dueDate":"","dueTime":"",
+             "skills":"","targetRole":"","targetCity":"","grade":"","note":""}
+            """);
+        ExtractionEngine.Outcome o = engine(llm).extractAndStore("改一下档案",1);
+        assertFalse(o.ok(),"全空档案应失败");
+        assertTrue(repo.profile().isEmpty(),"不应写入档案");
     }
 }

@@ -19,7 +19,7 @@ public record ExtractedItem(
 
     public static final Set<String> VALID_TYPES =
             Set.of("assignment", "exam", "todo", "course", "event", "course_override", "semester_setting",
-                    "internship");
+                    "internship", "profile_setting");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

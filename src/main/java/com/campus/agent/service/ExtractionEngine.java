@@ -2,14 +2,12 @@ package com.campus.agent.service;
 
 import com.campus.agent.Prompts;
 import com.campus.agent.llm.LlmClient;
-import com.campus.agent.model.ExtractedInternship;
-import com.campus.agent.model.ExtractedItem;
-import com.campus.agent.model.ExtractedOverride;
-import com.campus.agent.model.ExtractedSemesterSetting;
+import com.campus.agent.model.*;
 import com.campus.agent.store.ItemRepository;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 /** 抽取引擎：文本 → LLM 抽取（重试 1 次）→ 校验 → 按类型入库 → 失败进 raw_inbox。聊天与导入共用。 */
@@ -32,7 +30,7 @@ public class ExtractionEngine {
             try {
                 String json = llm.chatJson(Prompts.extract(), input);
                 ExtractedItem item = ExtractedItem.fromJson(json);
-                if ("course_override".equals(item.type()) || "semester_setting".equals(item.type()) || "internship".equals(item.type())) {
+                if ("course_override".equals(item.type()) || "semester_setting".equals(item.type()) || "internship".equals(item.type()) || "profile_setting".equals(item.type())) {
                     return store(item, json, sourceMessageId);
                 }
                 List<String> errs = item.validate();
@@ -73,6 +71,18 @@ public class ExtractionEngine {
             repo.insertInternship(in.company(),in.position(),in.city(),in.salary(),in.deadline(),
                     in.jd(),in.link(),sourceMessageId);
             return new Outcome(true,"实习信息录入成功",null);
+        }
+        if("profile_setting".equals(item.type())){
+            ExtractedProfile ep = ExtractedProfile.fromJson(json);
+            List<String> errs = ep.validate();
+            if(!errs.isEmpty()) throw new RuntimeException(String.join(";",errs));
+            repo.setProfile(ep);
+            StringBuilder sb = new StringBuilder("求职档案已更新");
+            if (ep.skills() != null) sb.append("，技能：").append(ep.skills());
+            if (ep.targetRole() != null) sb.append("，目标岗位：").append(ep.targetRole());
+            if (ep.targetCity() != null) sb.append("，目标城市：").append(ep.targetCity());
+            if (ep.grade() != null) sb.append("，年级：").append(ep.grade());
+            return new Outcome(true,sb.toString(),null);
         }
         repo.insert(item, sourceMessageId);
         return new Outcome(true, summarize(item), null);
