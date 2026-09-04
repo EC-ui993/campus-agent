@@ -19,7 +19,7 @@ public record ExtractedItem(
 
     public static final Set<String> VALID_TYPES =
             Set.of("assignment", "exam", "todo", "course", "event", "course_override", "semester_setting",
-                    "internship", "profile_setting");
+                    "internship", "profile_setting", "study_progress");
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -49,7 +49,7 @@ public record ExtractedItem(
     public List<String> validate() {
         List<String> errors = new ArrayList<>();
         if (type == null || !VALID_TYPES.contains(type)) {
-            errors.add("type 必须是 assignment/exam/todo/course/event/course_override/semester_setting/internship 之一，收到: " + type);
+            errors.add("type 必须是 assignment/exam/todo/course/event/course_override/semester_setting/internship/profile_setting/study_progress 之一，收到: " + type);
         }
         if (title == null || title.isBlank()) {
             errors.add("title 不能为空");

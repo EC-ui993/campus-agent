@@ -30,7 +30,7 @@ public class ExtractionEngine {
             try {
                 String json = llm.chatJson(Prompts.extract(), input);
                 ExtractedItem item = ExtractedItem.fromJson(json);
-                if ("course_override".equals(item.type()) || "semester_setting".equals(item.type()) || "internship".equals(item.type()) || "profile_setting".equals(item.type())) {
+                if ("course_override".equals(item.type()) || "semester_setting".equals(item.type()) || "internship".equals(item.type()) || "profile_setting".equals(item.type()) || "study_progress".equals(item.type())) {
                     return store(item, json, sourceMessageId);
                 }
                 List<String> errs = item.validate();
@@ -83,6 +83,14 @@ public class ExtractionEngine {
             if (ep.targetCity() != null) sb.append("，目标城市：").append(ep.targetCity());
             if (ep.grade() != null) sb.append("，年级：").append(ep.grade());
             return new Outcome(true,sb.toString(),null);
+        }
+        if("study_progress".equals(item.type())){
+            ExtractedStudyProgress es = ExtractedStudyProgress.fromJson(json);
+            List<String> errs = es.validate();
+            if(!errs.isEmpty()) throw new RuntimeException(String.join(";",errs));
+            LocalDate d = (es.studyDate() != null)?LocalDate.parse(es.studyDate()):LocalDate.now();
+            repo.insertStudyProgress(d,es.content(),sourceMessageId);
+            return new Outcome(true,"学习打卡已录入：" + es.content(),null);
         }
         repo.insert(item, sourceMessageId);
         return new Outcome(true, summarize(item), null);

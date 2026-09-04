@@ -3,6 +3,7 @@ package com.campus.agent.service;
 import com.campus.agent.model.ExtractedProfile;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.ProfileItem;
+import com.campus.agent.store.StudyProgressItem;
 import com.campus.agent.store.mapper.*;
 import com.campus.agent.testing.FakeLlm;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,8 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -143,5 +146,34 @@ class ExtractionEngineTest {
         ExtractionEngine.Outcome o = engine(llm).extractAndStore("改一下档案",1);
         assertFalse(o.ok(),"全空档案应失败");
         assertTrue(repo.profile().isEmpty(),"不应写入档案");
+    }
+
+    @Test
+    void studyProgressWithExplicitDate(){
+        FakeLlm llm = new FakeLlm().json("""
+                {"type":"study_progress","title":"","course":"","teacher":"",
+                 "content":"学了集合框架","location":"","dueDate":"","dueTime":"",
+                 "studyDate":"2026-08-31"}
+                """);
+        ExtractionEngine.Outcome o = engine(llm).extractAndStore("8月31日学了集合框架",1);
+        assertTrue(o.ok(),"应成功: " + o.error());
+        List<StudyProgressItem> list = repo.studyProgressBetween(LocalDate.of(2026,8,30),
+                                                                 LocalDate.of(2026,8,31));
+        assertEquals(1,list.size());
+        assertEquals("学了集合框架", list.get(0).content());
+    }
+
+    @Test
+    void studyProgressDefaultsToToday(){
+        FakeLlm llm = new FakeLlm().json("""
+                {"type":"study_progress","title":"","course":"","teacher":"",
+                 "content":"学了MyBatis-Plus","location":"","dueDate":"","dueTime":"",
+                 "studyDate":""}
+                """);
+        ExtractionEngine.Outcome o = engine((llm)).extractAndStore("今天学了MyBatis-Plus",1);
+        assertTrue(o.ok(),"应成功: " + o.error());
+        List<StudyProgressItem> list = repo.studyProgressBetween(LocalDate.now(),LocalDate.now());
+        assertEquals(1,list.size());
+        assertEquals("学了MyBatis-Plus", list.get(0).content());
     }
 }
