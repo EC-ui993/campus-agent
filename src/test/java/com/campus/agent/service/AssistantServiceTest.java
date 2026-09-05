@@ -1,6 +1,7 @@
 package com.campus.agent.service;
 
 import com.campus.agent.model.ExtractedItem;
+import com.campus.agent.model.ExtractedProfile;
 import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.StoredItem;
@@ -286,5 +287,42 @@ class AssistantServiceTest {
         String delReply = service.handle("删除第一条实习");
         assertTrue(delReply.contains("字节跳动"),"应该包含实习，实际：" + delReply);
         assertTrue(service.repository().allInternships().isEmpty());
+    }
+
+    @Test
+    void matchAnalysisStreamsWithProfileAndJd(){
+        repo.setProfile(new ExtractedProfile("Java、SQL", "Java后端实习生", "杭州", "大三", null));
+        repo.insertInternship("字节跳动", "Java后端实习生", "北京", "200-300/天",
+                "2026-09-15", "要求熟悉Spring Boot", "https://example.com/jd/1", 1);
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"match_analysis\"}")
+                .streamChunks("匹配度", "80分", "差距是Redis");
+        AssistantService service = newService(llm);
+        StringBuilder received = new StringBuilder();
+        String full = service.handleStreaming("分析匹配度", received::append);
+        assertEquals("匹配度80分差距是Redis", full);
+        assertEquals("匹配度80分差距是Redis", received.toString());
+        assertTrue(llm.lastSystemPrompt.contains("字节跳动"), "prompt 内容: " + llm.lastSystemPrompt);
+        assertTrue(llm.lastSystemPrompt.contains("Java、SQL"), "prompt 应含技能: " + llm.lastSystemPrompt);
+    }
+
+    @Test
+    void weeklyReviewEmptyLogsGivesHint(){
+        FakeLlm llm = new FakeLlm().json("{\"intent\":\"weekly_review\"}");
+        AssistantService service = newService(llm);
+        StringBuilder received = new StringBuilder();
+        String full = service.handleStreaming("复盘这周",received::append);
+        assertEquals("近七天未录入学习进度信息", full);
+        assertEquals("近七天未录入学习进度信息", received.toString());
+    }
+
+    @Test
+    void studyPlanNoInternshipGivesHint(){
+        FakeLlm llm = new FakeLlm().json("{\"intent\":\"study_plan\"}");
+        AssistantService service = newService(llm);
+        StringBuilder received = new StringBuilder();
+        String full = service.handleStreaming("根据这个JD制定学习计划",received::append);
+        assertEquals("还没有实习记录，先粘贴一条JD吧", full);
+        assertEquals("还没有实习记录，先粘贴一条JD吧", received.toString());
     }
 }

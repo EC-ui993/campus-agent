@@ -15,11 +15,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,7 +61,7 @@ public class AssistantService {
         };
     }
 
-    public String handleStreaming(String input,java.util.function.Consumer<String> onDelta) {
+    public String handleStreaming(String input, Consumer<String> onDelta) {
         long messageId;
         try {
             messageId = repo.insertMessage("user", input);
@@ -85,6 +82,41 @@ public class AssistantService {
                 String reply = acc.toString();
                 repo.insertMessage("assistant", reply);
                 return reply;
+            }
+            else if(intent.equals("match_analysis") || intent.equals("study_plan") || intent.equals("weekly_review")){
+                String prompt;
+                if(intent.equals("weekly_review")){
+                    List<StudyProgressItem> logs = repo.studyProgressBetween(LocalDate.now().minusDays(7),LocalDate.now());
+                    if(logs.isEmpty()) {
+                        String reply = "近七天未录入学习进度信息";
+                        onDelta.accept(reply);
+                        repo.insertMessage("assistant",reply);
+                        return reply;
+                    }
+                    String logsJson = MAPPER.writeValueAsString(logs.stream().map(StudyProgressItem::toMap).toList());
+                    prompt = Prompts.WEEKLY_REVIEW.replace("{logs}","【数据库内容】\n" + logsJson);
+                }
+                else {
+                    Optional<InternshipItem> latest = repo.allInternships().stream().max(Comparator.comparing(InternshipItem::id));
+                    if(latest.isEmpty()){
+                        String reply = "还没有实习记录，先粘贴一条JD吧";
+                        onDelta.accept(reply);
+                        repo.insertMessage("assistant",reply);
+                        return reply;
+                    }
+                    Optional<ProfileItem> profileOpt = repo.profile();
+                    if(profileOpt.isEmpty()){
+                        String reply = "(未设置求职档案，建议先说\"我的技能是…\"设置)";
+                        onDelta.accept(reply);
+                        repo.insertMessage("assistant",reply);
+                        return reply;
+                    }
+                    String jdJson = MAPPER.writeValueAsString(latest.get().toMap());
+                    String profileJson = MAPPER.writeValueAsString(profileOpt.get().toMap());
+                    prompt = intent.equals("match_analysis")?Prompts.MATCH_ANALYSIS.replace("{profile}",profileJson).replace("{jd}",jdJson)
+                                                            :Prompts.STUDY_PLAN.replace("{profile}",profileJson).replace("{jd}",jdJson);
+                }
+                return streamAnswer(prompt, input, onDelta);
             }
             else{
                 return switch (intent){
@@ -111,6 +143,20 @@ public class AssistantService {
             throw new RuntimeException(e);
         }
     }
+
+    // 私有方法：拼好的 prompt → 流式发送 → 存 messages → 返回完整回复
+    private String streamAnswer(String prompt,String input,Consumer<String> onDelta){
+        StringBuilder acc = new StringBuilder();
+        llm.chatStream(prompt,input,delta -> {acc.append(delta);onDelta.accept(delta);});
+        String reply = acc.toString();
+        try {
+            repo.insertMessage("assistant",reply);
+        } catch (SQLException e) {
+            throw new RuntimeException("保存聊天记录失败: " + e.getMessage());
+        }
+        return reply;
+    }
+
     private String classify(String input) {
         try {
             JsonNode n = MAPPER.readTree(llm.chatJson(Prompts.CLASSIFY, input));
@@ -271,7 +317,7 @@ public class AssistantService {
     /** 给所有记录加上每类内的连续显示序号 seq。 */
     public List<Map<String, Object>> recordsWithSeq() {
         List<Map<String, Object>> result = new ArrayList<>();
-        Map<String, Integer> counters = new java.util.HashMap<>();
+        Map<String, Integer> counters = new HashMap<>();
         for (StoredItem s : repo.allItems()) {
             Map<String, Object> m = s.toMap();
             int seq = counters.merge(s.type(), 1, Integer::sum);
@@ -416,7 +462,7 @@ public class AssistantService {
     }
 
     private void diff(List<String> lines,String label,String oldVal,String newVal){
-        if(java.util.Objects.equals(oldVal,newVal)) return;;
+        if(Objects.equals(oldVal,newVal)) return;;
         lines.add(label + ": " + nvl(oldVal,"（空）") + " -> " + nvl(newVal,"（空）"));
     }
 
