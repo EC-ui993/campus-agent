@@ -4,3 +4,5 @@ config.properties
 .idea/
 *.iml
 start.ps1
+app.log
+app.err.log
