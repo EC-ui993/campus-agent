@@ -46,6 +46,13 @@ public class ChatController {
                 .toList();
     }
 
+    @GetMapping("/internships")
+    public List<Map<String, Object>> internships(){
+        return service.recordsWithSeq().stream()
+                .filter(m -> "internship".equals(m.get("type")))
+                .toList();
+    }
+
     @GetMapping("/schedule/week")
     public List<Map<String, Object>> weekSchedule() {
         LocalDate today = LocalDate.now();

@@ -28,8 +28,16 @@
   #send:active { transform: translateY(1px); }
   #report { background:#fff; border-bottom:1px solid #e5e6eb; }
   #reportBody { white-space: pre-wrap; padding:12px 16px 4px; overflow:hidden; }
+  #reportBody.hidden { display:none; }
   #reportGrip { display:flex; justify-content:center; align-items:center; gap:6px; padding:6px 0; cursor:ns-resize; touch-action:none; user-select:none; }
   #reportGrip span { width:36px; height:4px; border-radius:2px; background:#d0d3d9; }
+  #internshipPanel { background:#fff; border-bottom:1px solid #e5e6eb; }
+  #internshipHeader { display:flex; align-items:center; gap:8px; padding:10px 16px; cursor:pointer; font-weight:600; user-select:none; }
+  #internshipHeader:hover { background:#f7f8fa; }
+  #internshipArrow { transition: transform .15s ease; color:#999; font-size:12px; }
+  #internshipPanel.collapsed #internshipArrow { transform: rotate(-90deg); }
+  #internshipList { white-space: pre-wrap; padding:0 16px 10px; font-size:14px; line-height:1.8; }
+  #internshipList .empty { color:#999; }
 </style>
 </head>
 <body>
@@ -42,6 +50,10 @@
 <div id="report" style="display:none;">
   <div id="reportBody"></div>
   <div id="reportGrip"><span></span><span></span></div>
+</div>
+<div id="internshipPanel" style="display:none;">
+  <div id="internshipHeader">💼 实习列表 <span id="internshipArrow">▼</span></div>
+  <div id="internshipList"></div>
 </div>
 <div id="importResult" style="display:none; padding:8px 16px; background:#fffbe6; border-bottom:1px solid #e5e6eb"></div>
 <div id="messages"></div>
@@ -97,31 +109,70 @@
       } catch (e) { /* 早报失败不阻塞聊天 */ }
     }
 
-    /** 早报拖拽收起/展开：上滑隐藏、下滑显示，底部两条短线是手柄。 */
+    /** 早报拖拽收起/展开：上滑隐藏、下滑显示，底部两条短线是手柄。拖到最顶则内容彻底隐藏（只留手柄），下拉重新出现。 */
     function initReportGrip() {
       const body = document.getElementById("reportBody");
       const grip = document.getElementById("reportGrip");
       const maxH = body.scrollHeight;
-      const minH = 0;
-      body.style.height = maxH + "px";
       let startY = 0, startH = 0, dragging = false;
+      // 拖拽中的实时高度；若 body 处于 hidden，从 0 高度开始拉
+      function currentHeight() {
+        return body.classList.contains("hidden") ? 0 : body.getBoundingClientRect().height;
+      }
+      function applyHeight(h) {
+        if (h <= 8) {
+          body.classList.add("hidden");   // 彻底收起：内容消失，只留手柄
+        } else {
+          body.classList.remove("hidden");
+          body.style.height = h + "px";
+        }
+      }
+      applyHeight(maxH);   // 默认展开
       grip.addEventListener("pointerdown", (e) => {
         dragging = true;
         startY = e.clientY;
-        startH = body.getBoundingClientRect().height;
+        startH = currentHeight();
         grip.setPointerCapture(e.pointerId);
         e.preventDefault();
       });
       grip.addEventListener("pointermove", (e) => {
         if (!dragging) return;
-        const h = Math.max(minH, Math.min(maxH, startH + (e.clientY - startY)));
-        body.style.height = h + "px";
+        const h = Math.max(0, Math.min(maxH, startH + (e.clientY - startY)));
+        applyHeight(h);
       });
       const stop = () => { dragging = false; };
       grip.addEventListener("pointerup", stop);
       grip.addEventListener("pointercancel", stop);
     }
     loadReport();
+
+    /** 实习列表：fetch /api/internships，渲染 #序号 公司-岗位 | 城市 | 截止 | 状态 */
+    async function loadInternships() {
+      try {
+        const resp = await fetch("/api/internships", { headers: { "X-Access-Token": token } });
+        if (resp.status === 401) return;
+        const items = await resp.json();
+        const panel = document.getElementById("internshipPanel");
+        const list = document.getElementById("internshipList");
+        panel.style.display = "block";
+        if (!items.length) {
+          list.innerHTML = '<div class="empty">（还没有实习记录，粘贴一条 JD 即可入库）</div>';
+          return;
+        }
+        list.textContent = items.map(it =>
+          `#${it.seq} ${it.title} | ${it.city || "?"} | 截止 ${it.deadline || "?"} | ${it.status || "?"}`
+        ).join("\n");
+      } catch (e) { /* 实习列表失败不阻塞聊天 */ }
+    }
+    loadInternships();
+
+    // 实习列表折叠：点标题收起/展开
+    document.getElementById("internshipHeader").onclick = () => {
+      const panel = document.getElementById("internshipPanel");
+      panel.classList.toggle("collapsed");
+      document.getElementById("internshipList").style.display =
+          panel.classList.contains("collapsed") ? "none" : "block";
+    };
 
 
 
