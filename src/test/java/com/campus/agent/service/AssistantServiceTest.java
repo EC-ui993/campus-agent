@@ -325,4 +325,17 @@ class AssistantServiceTest {
         assertEquals("还没有实习记录，先粘贴一条JD吧", full);
         assertEquals("还没有实习记录，先粘贴一条JD吧", received.toString());
     }
+
+    @Test
+    void weeklyReviewWithLogsStreams(){
+        repo.insertStudyProgress(LocalDate.now(),"MyBatis-Plus",1);
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"weekly_review\"}")
+                .streamChunks("本周学了", "MyBatis-Plus");
+        AssistantService service = newService(llm);
+        StringBuilder received = new StringBuilder();
+        String full = service.handleStreaming("复盘这周",received::append);
+        assertEquals("本周学了MyBatis-Plus",full);
+        assertTrue(llm.lastSystemPrompt.contains("MyBatis-Plus"));
+    }
 }

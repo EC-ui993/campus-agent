@@ -19,11 +19,12 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /** 核心编排：意图分类 → 记录/提问/纠正 三条分支。 */
 public class AssistantService {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
     private static final Set<String> DELETABLE_TYPES =
             Set.of("assignment", "exam", "todo", "course", "event", "internship");
 
