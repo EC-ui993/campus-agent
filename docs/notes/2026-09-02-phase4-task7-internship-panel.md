@@ -48,7 +48,7 @@
 页面加载 -> loadInternships() -> fetch GET /api/internships(带token)    页面打开时加载，自动发送http请求
 -> ChatController.internships() -> service.recordsWithSeq()(带seq的5类+实习段) -> filter   前端控制器根据请求头调用对应的controller方法，然后取出过滤返回列表
 -> JSON数组 -> 前端渲染"#seq title | city | 截止 | 状态"   spring把得到的列表序列化成JSON返回给前端渲染
-折叠：点标题 -> panel.classList.toggle("collapsed") → 内容 display none/block
+折叠：面板默认折叠（HTML 初始带 collapsed 类）→ 点标题 -> panel.classList.toggle("collapsed") → CSS(.collapsed #internshipList) 控制内容显示/隐藏，箭头旋转
 
 ## 今天答错的点（复习重点）
 
