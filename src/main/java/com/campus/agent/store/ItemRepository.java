@@ -487,10 +487,10 @@ public class ItemRepository {
 
     //studyProgress表读写
     //写一条打卡
-    public long insertStudyProgress(LocalDate studyDate,String content,long sourceMessageId){
+    public long insertStudyProgress(LocalDate studyDate,String context,long sourceMessageId){
         StudyProgress s = new StudyProgress();
         s.setStudyDate(studyDate.toString());
-        s.setContent(content);
+        s.setContext(context);
         s.setSourceMessageId(sourceMessageId);
         studyProgressMapper.insert(s);
         return s.getId();
@@ -503,7 +503,7 @@ public class ItemRepository {
                         .le(StudyProgress::getStudyDate, to.toString())
                         .orderByAsc(StudyProgress::getStudyDate))
                 .stream().map(s -> new StudyProgressItem(s.getId(),
-                        LocalDate.parse(s.getStudyDate()), s.getContent()))
+                        LocalDate.parse(s.getStudyDate()), s.getContext()))
                 .toList();
     }
 }

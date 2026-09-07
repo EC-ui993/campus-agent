@@ -40,7 +40,8 @@ public class Database implements AutoCloseable {
                 try {
                     st.execute(sql);
                 } catch (SQLException e) {
-                    if (!e.getMessage().toLowerCase().contains("duplicate column")) {
+                    String msg = e.getMessage().toLowerCase();
+                    if (!msg.contains("duplicate column") && !msg.contains("no such column")) {
                         throw e;
                     }
                 }
@@ -61,7 +62,8 @@ public class Database implements AutoCloseable {
             "ALTER TABLE courses ADD COLUMN start_time TEXT",
             "ALTER TABLE courses ADD COLUMN end_time TEXT",
             "ALTER TABLE courses ADD COLUMN weekday INTEGER",
-            "ALTER TABLE courses ADD COLUMN weeks TEXT"
+            "ALTER TABLE courses ADD COLUMN weeks TEXT",
+            "ALTER TABLE study_progress RENAME COLUMN content TO context"
     };
 
     private static final String SCHEMA = """

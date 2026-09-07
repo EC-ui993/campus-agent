@@ -58,6 +58,7 @@ public final class Prompts {
             - targetCity: 目标城市（仅 profile_setting 用）
             - grade: 年级（仅 profile_setting 用）
             - studyDate: 学习日期 yyyy-MM-dd（仅 study_progress 用；"今天/昨天"换算成日期；没提日期留空，系统按今天记）
+            - context: 学习内容（仅 study_progress 用，必填；只写学了什么，不要把"今天/昨天"等时间词写进来）
             今天是 {today}。
             """;
 

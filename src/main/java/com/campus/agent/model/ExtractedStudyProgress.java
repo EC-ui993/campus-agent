@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public record ExtractedStudyProgress(String studyDate, String content) {
+public record ExtractedStudyProgress(String studyDate, String context) {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -22,7 +22,7 @@ public record ExtractedStudyProgress(String studyDate, String content) {
 
         return new ExtractedStudyProgress(
                 blankToNull(n.path("studyDate").asText("")),
-                blankToNull(n.path("content").asText("")));
+                blankToNull(n.path("context").asText("")));
     }
 
     public List<String> validate(){
@@ -30,7 +30,7 @@ public record ExtractedStudyProgress(String studyDate, String content) {
         if(studyDate != null && !studyDate.matches("\\d{4}-\\d{2}-\\d{2}")){
             errors.add("日期格式错误");
         }
-        if(content == null || content.isBlank()){
+        if(context == null || context.isBlank()){
             errors.add("内容不能为空");
         }
         return errors;

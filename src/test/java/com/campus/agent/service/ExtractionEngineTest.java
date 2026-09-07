@@ -152,7 +152,7 @@ class ExtractionEngineTest {
     void studyProgressWithExplicitDate(){
         FakeLlm llm = new FakeLlm().json("""
                 {"type":"study_progress","title":"","course":"","teacher":"",
-                 "content":"学了集合框架","location":"","dueDate":"","dueTime":"",
+                 "context":"学了集合框架","location":"","dueDate":"","dueTime":"",
                  "studyDate":"2026-08-31"}
                 """);
         ExtractionEngine.Outcome o = engine(llm).extractAndStore("8月31日学了集合框架",1);
@@ -160,20 +160,20 @@ class ExtractionEngineTest {
         List<StudyProgressItem> list = repo.studyProgressBetween(LocalDate.of(2026,8,30),
                                                                  LocalDate.of(2026,8,31));
         assertEquals(1,list.size());
-        assertEquals("学了集合框架", list.get(0).content());
+        assertEquals("学了集合框架", list.get(0).context());
     }
 
     @Test
     void studyProgressDefaultsToToday(){
         FakeLlm llm = new FakeLlm().json("""
                 {"type":"study_progress","title":"","course":"","teacher":"",
-                 "content":"学了MyBatis-Plus","location":"","dueDate":"","dueTime":"",
+                 "context":"学了MyBatis-Plus","location":"","dueDate":"","dueTime":"",
                  "studyDate":""}
                 """);
         ExtractionEngine.Outcome o = engine((llm)).extractAndStore("今天学了MyBatis-Plus",1);
         assertTrue(o.ok(),"应成功: " + o.error());
         List<StudyProgressItem> list = repo.studyProgressBetween(LocalDate.now(),LocalDate.now());
         assertEquals(1,list.size());
-        assertEquals("学了MyBatis-Plus", list.get(0).content());
+        assertEquals("学了MyBatis-Plus", list.get(0).context());
     }
 }

@@ -89,8 +89,8 @@ public class ExtractionEngine {
             List<String> errs = es.validate();
             if(!errs.isEmpty()) throw new RuntimeException(String.join(";",errs));
             LocalDate d = (es.studyDate() != null)?LocalDate.parse(es.studyDate()):LocalDate.now();
-            repo.insertStudyProgress(d,es.content(),sourceMessageId);
-            return new Outcome(true,"学习打卡已录入：" + es.content(),null);
+            repo.insertStudyProgress(d,es.context(),sourceMessageId);
+            return new Outcome(true,"学习打卡已录入：" + es.context(),null);
         }
         repo.insert(item, sourceMessageId);
         return new Outcome(true, summarize(item), null);

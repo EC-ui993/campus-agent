@@ -9,7 +9,7 @@ public class StudyProgress {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String studyDate;
-    private String content;
+    private String context;
     private Long sourceMessageId;
 
     public Long getId() {
@@ -28,12 +28,12 @@ public class StudyProgress {
         this.studyDate = studyDate;
     }
 
-    public String getContent() {
-        return content;
+    public String getContext() {
+        return context;
     }
 
-    public void setContent(String content) {
-        this.content = content;
+    public void setContext(String context) {
+        this.context = context;
     }
 
     public Long getSourceMessageId() {

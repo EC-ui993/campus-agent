@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS profile(
 CREATE TABLE IF NOT EXISTS study_progress(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   study_date TEXT NOT NULL,
-  content TEXT NOT NULL,
+  context TEXT NOT NULL,
   source_message_id INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')));
 
