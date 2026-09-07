@@ -36,6 +36,7 @@
   #internshipHeader:hover { background:#f7f8fa; }
   #internshipArrow { transition: transform .15s ease; color:#999; font-size:12px; }
   #internshipPanel.collapsed #internshipArrow { transform: rotate(-90deg); }
+  #internshipPanel.collapsed #internshipList { display: none; }
   #internshipList { white-space: pre-wrap; padding:0 16px 10px; font-size:14px; line-height:1.8; }
   #internshipList .empty { color:#999; }
 </style>
@@ -51,7 +52,7 @@
   <div id="reportBody"></div>
   <div id="reportGrip"><span></span><span></span></div>
 </div>
-<div id="internshipPanel" style="display:none;">
+<div id="internshipPanel" class="collapsed" style="display:none;">
   <div id="internshipHeader">💼 实习列表 <span id="internshipArrow">▼</span></div>
   <div id="internshipList"></div>
 </div>
@@ -154,7 +155,7 @@
         const items = await resp.json();
         const panel = document.getElementById("internshipPanel");
         const list = document.getElementById("internshipList");
-        panel.style.display = "block";
+        panel.style.display = "block";   // 面板可见（默认折叠，点标题展开）
         if (!items.length) {
           list.innerHTML = '<div class="empty">（还没有实习记录，粘贴一条 JD 即可入库）</div>';
           return;
@@ -166,12 +167,9 @@
     }
     loadInternships();
 
-    // 实习列表折叠：点标题收起/展开
+    // 实习列表折叠：点标题收起/展开（CSS 的 .collapsed 控制显示）
     document.getElementById("internshipHeader").onclick = () => {
-      const panel = document.getElementById("internshipPanel");
-      panel.classList.toggle("collapsed");
-      document.getElementById("internshipList").style.display =
-          panel.classList.contains("collapsed") ? "none" : "block";
+      document.getElementById("internshipPanel").classList.toggle("collapsed");
     };
 
 
