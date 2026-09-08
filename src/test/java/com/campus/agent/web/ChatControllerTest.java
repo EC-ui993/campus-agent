@@ -33,7 +33,7 @@ class ChatControllerTest {
     static void props(DynamicPropertyRegistry registry) throws Exception {
         dbPath = Files.createTempFile("agent-web-test", ".db");
         Files.deleteIfExists(dbPath); // SQLite 会重新创建
-        registry.add("app.db-path", () -> dbPath.toString());
+        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + dbPath);
     }
 
     @TestConfiguration
