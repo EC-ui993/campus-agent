@@ -29,7 +29,7 @@
   #report { background:#fff; border-bottom:1px solid #e5e6eb; }
   #reportBody { white-space: pre-wrap; padding:12px 16px 4px; overflow:hidden; }
   #reportBody.hidden { display:none; }
-  #reportGrip { display:flex; justify-content:center; align-items:center; gap:6px; padding:6px 0; cursor:ns-resize; touch-action:none; user-select:none; }
+  #reportGrip { display:flex; justify-content:center; align-items:center; gap:6px; padding:14px 0; cursor:ns-resize; touch-action:none; user-select:none; }
   #reportGrip span { width:36px; height:4px; border-radius:2px; background:#d0d3d9; }
   #internshipPanel { background:#fff; border-bottom:1px solid #e5e6eb; }
   #internshipHeader { display:flex; align-items:center; gap:8px; padding:10px 16px; cursor:pointer; font-weight:600; user-select:none; }
@@ -129,6 +129,8 @@
         }
       }
       applyHeight(maxH);   // 默认展开
+      // 手机兜底：阻止浏览器把手势抢走（页面滚动）。touch-action:none 在部分移动浏览器不生效，需显式拦 touchmove
+      grip.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
       grip.addEventListener("pointerdown", (e) => {
         dragging = true;
         startY = e.clientY;
