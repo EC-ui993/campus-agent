@@ -78,7 +78,7 @@ SQLite（agent.db 单文件，本机）
 | todos | 通用待办（内容/截止/优先级/状态/来源） |
 | messages | 聊天记录（原文/解析结果/时间） |
 | events | 其他日程（活动/老师通知原文存档） |
-| internships | 实习信息（company/position/city/salary/deadline/jd 原文/link/status：new 默认，标记后置） |
+| internships | 实习信息（company/position/city/salary/deadline/jd 原文/link/status：new/applied/favorite/ignore，词表 Java 侧校验） |
 | profile | 求职档案（单行：skills/target_role/target_city/grade），聊天"设置档案"写入 |
 | study_progress | 学习打卡（study_date/context，date 缺省记今天） |
 | study_plan | 学习计划任务表（**后置**：v1 学习计划以文本生成存 messages，不建表） |
@@ -131,7 +131,7 @@ SQLite（agent.db 单文件，本机）
 
 「今天有什么课」类问题：服务端先按**当天星期几**查默认课程，**按学期周次过滤**（courses.weeks 匹配当前周才保留，支持 "1-16"/"1-8,10-16"/单双周语法；未设置学期不过滤，未开学或假期无默认课程），再**应用当日 course_overrides 变动**（取消→剔除；改时间/地点→替换），把"当日有效课程"作为上下文交给 LLM。变动按日期作用，日期一过自动失效、恢复默认——无需任何清理逻辑。
 
-**记录管理（纠正/删除）**：用户可在对话中按「类型+编号」操作记录（如"把作业第3条的日期改成11月12日"、"删除待办第5条"）。分类器识别 correction/delete 意图 → LLM 结合记录列表输出 type+id → 服务端无状态地执行更新或删除。删除回执必须带被删内容（标题/类型）以便误删补救。
+**记录管理（纠正/删除/标记）**：用户可在对话中按「类型+编号」操作记录（如"把作业第3条的日期改成11月12日"、"删除待办第5条"、"把实习第2条标记为已投"）。分类器识别 correction/delete/mark 意图 → LLM 结合记录列表输出 type+id（+动作内容）→ 服务端无状态地执行。删除回执必须带被删内容（标题/类型）以便误删补救；状态词表（实习 new/applied/favorite/ignore，作业/待办 pending/done）在 Java 侧校验；标 done 的作业/待办从早报到期提醒中排除。
 
 ### 7.3 定时任务与早报
 
