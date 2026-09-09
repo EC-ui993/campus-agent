@@ -80,7 +80,7 @@ SQLite（agent.db 单文件，本机）
 | events | 其他日程（活动/老师通知原文存档） |
 | internships | 实习信息（company/position/city/salary/deadline/jd 原文/link/status：new 默认，标记后置） |
 | profile | 求职档案（单行：skills/target_role/target_city/grade），聊天"设置档案"写入 |
-| study_progress | 学习打卡（study_date/content，date 缺省记今天） |
+| study_progress | 学习打卡（study_date/context，date 缺省记今天） |
 | study_plan | 学习计划任务表（**后置**：v1 学习计划以文本生成存 messages，不建表） |
 | raw_inbox | 未解析成功的原始消息（兜底存档） |
 
@@ -146,7 +146,7 @@ SQLite（agent.db 单文件，本机）
   - 匹配度分析：最新实习 JD + 档案 → LLM 输出评分、已满足项、差距清单与补课建议、近 2 周三件事；
   - 学习计划：JD + 档案 → LLM 生成 4 周可执行任务（按周拆分）；计划以文本存 messages，不建任务表（YAGNI，打卡数据积累出真实需求后再建）；
   - 周复盘：近 7 天打卡记录 → LLM 总结亮点/不足与下周建议。
-- **每日打卡**：study_progress（date 缺省记今天、content）；状态标记（已投/收藏）与 JD 去重后置小修。
+- **每日打卡**：study_progress（date 缺省记今天、context——只记学了什么，不含时间词）；状态标记（已投/收藏）与 JD 去重后置小修。
 - **设计原则**：会反复查询/需要状态流转的存表；一次性生成品只存聊天记录。
 
 ## 8. 错误处理策略
