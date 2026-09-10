@@ -3,6 +3,7 @@ package com.campus.agent.service;
 import com.campus.agent.model.ExtractedProfile;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.ProfileItem;
+import com.campus.agent.store.StoredItem;
 import com.campus.agent.store.StudyProgressItem;
 import com.campus.agent.store.mapper.*;
 import com.campus.agent.testing.FakeLlm;
@@ -175,5 +176,18 @@ class ExtractionEngineTest {
         List<StudyProgressItem> list = repo.studyProgressBetween(LocalDate.now(),LocalDate.now());
         assertEquals(1,list.size());
         assertEquals("学了MyBatis-Plus", list.get(0).context());
+    }
+
+    @Test
+    void assignmentContentStripsCoursePrefix(){
+        FakeLlm llm = new FakeLlm().json("""
+            {"type":"assignment","title":"计算机组成","course":"计算机组成","teacher":"",
+             "content":"计算机组成，习题3、4、6、7、8","location":"","dueDate":"","dueTime":"",
+             "startTime":"","endTime":"","weekday":null,"weeks":null}
+            """);
+        ExtractionEngine.Outcome o = engine(llm).extractAndStore("计算机组成习题3、4、6、7、8",1);
+        assertTrue(o.ok(),"应成功"+o.error());
+        StoredItem s = repo.allItems().get(0);
+        assertEquals("习题3、4、6、7、8",s.content(),"应剥掉'计算机组成，'前缀");
     }
 }

@@ -92,6 +92,11 @@ public class ExtractionEngine {
             repo.insertStudyProgress(d,es.context(),sourceMessageId);
             return new Outcome(true,"学习打卡已录入：" + es.context(),null);
         }
+        if("assignment".equals(item.type()) && item.course() != null && item.content() != null && item.content().startsWith(item.course())){
+            String cleaned = item.content().substring(item.course().length()).replaceFirst("^[,，、:：\\s]+","");
+            item = new ExtractedItem(item.type(),item.title(),item.course(),item.teacher(),cleaned,item.location(), item.dueDate(),item.dueTime(),
+                    item.startTime(),item.endTime(),item.weekday(),item.weeks());
+        }
         repo.insert(item, sourceMessageId);
         return new Outcome(true, summarize(item), null);
     }
