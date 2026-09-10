@@ -25,6 +25,14 @@ class PromptsTest {
         assertTrue(Prompts.CORRECT.contains("标题/名字改成"), "CORRECT 应定义指代规则");
         assertTrue(Prompts.CORRECT.contains("未明确指代"), "CORRECT 应定义默认规则");
     }
+
+    @Test
+    void extractPromptDefinesAssignmentTitleSemantics(){
+        String prompt = Prompts.extract();
+        assertTrue(prompt.contains("title 填**课程名**"),"应定义作业title=课程名");
+        assertTrue(prompt.contains("计算机组成习题3、4、6、7、8"),"应包含fewshot示例");
+        assertTrue(prompt.contains("不要重复课程名"),"应含 content 去冗余规则");  
+    }
 }
 
 

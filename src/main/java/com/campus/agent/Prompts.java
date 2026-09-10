@@ -28,10 +28,12 @@ public final class Prompts {
             - type: 必填，取值 assignment(作业) / exam(考试) / todo(待办) / course(课程信息) / course_override(课程临时变动：停课/调课) / semester_setting(学期设置) / event(日程活动) / 
               internship(实习/招聘信息：如岗位 JD) / profile_setting(设置求职档案：技能/目标岗位/城市/年级) / study_progress(学习打卡：如"今天学了集合框架一小时")。
               停课、调课、换教室这类“某门课某天的变动”归为 course_override；每周固定的课程安排归为 course；设置学期开始日期和总周数归为 semester_setting。
-            - title: 必填，不超过 15 字的简短标题。作业填作业名/编号（如"习题5.2""实验报告"），考试填考试名（如"英语期中"），课程填课程名，待办填事项名。不要把要求详情写进来。
+            - title: 必填，不超过 15 字的简短标题。作业(assignment)的 title 填**课程名**（如"计算机组成""高数"）；
+             考试(exam)填考试名（如"英语期中"）；课程(course)填课程名；待办(todo)填事项名。
+            - content: 完整内容/要求。作业的 content 填具体作业内容（如"习题3、4、6、7、8""实验报告，下周一交"），
+            **不要重复课程名**。没有留空。
             - course: 课程名（与某门课相关才填，没有留空）
             - teacher: 老师姓名（没有留空）
-            - content: 完整内容/要求/详情（可包含标题的完整表述，如"完成习题5.2全部题目，下周一交"）。没有留空。
             - location: 地点（没有留空）
             - dueDate: 截止/考试/活动日期，格式 yyyy-MM-dd（“今天/明天/下周X”要换算成具体日期；没有则留空）
             - dueTime: 时间，格式 HH:mm（没有留空）
@@ -59,6 +61,13 @@ public final class Prompts {
             - grade: 年级（仅 profile_setting 用）
             - studyDate: 学习日期 yyyy-MM-dd（仅 study_progress 用；"今天/昨天"换算成日期；没提日期留空，系统按今天记）
             - context: 学习内容（仅 study_progress 用，必填；只写学了什么，不要把"今天/昨天"等时间词写进来）
+            抽取示例（严格照此风格）：
+            输入：计算机组成习题3、4、6、7、8
+            输出：{"type":"assignment","title":"计算机组成","course":"计算机组成","teacher":"","content":"习题3、4、6、7、8","location":"","dueDate":"","dueTime":"","startTime":"","endTime":"","weekday":null,"weeks":null}
+            输入：高数作业：习题5.2，11月20日前交
+            输出：{"type":"assignment","title":"高数","course":"高数","teacher":"","content":"习题5.2","location":"","dueDate":"2026-11-20","dueTime":"","startTime":"","endTime":"","weekday":null,"weeks":null}
+            输入：下周二英语课考试，考1-5单元
+            输出：{"type":"exam","title":"英语期中","course":"英语","teacher":"","content":"1-5单元","location":"","dueDate":"2026-09-08","dueTime":"","startTime":"","endTime":"","weekday":null,"weeks":null}
             今天是 {today}。
             """;
 
