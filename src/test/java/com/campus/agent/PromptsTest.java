@@ -31,7 +31,7 @@ class PromptsTest {
         String prompt = Prompts.extract();
         assertTrue(prompt.contains("title 填**课程名**"),"应定义作业title=课程名");
         assertTrue(prompt.contains("计算机组成习题3、4、6、7、8"),"应包含fewshot示例");
-        assertTrue(prompt.contains("不要重复课程名"),"应含 content 去冗余规则");  
+        assertTrue(prompt.contains("不要重复课程名"),"应含 content 去冗余规则");
     }
 }
 
