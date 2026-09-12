@@ -13,7 +13,7 @@
 | 📥 Excel 一键导入 | 网页上传课表 Excel，EasyExcel 读行 + LLM 抽取兜底，不挑列格式 |
 | 📅 每日早报 | 每天 7:00 定时生成：今日课程、到期作业、临近考试、今日待办；电脑没开机时访问页面即时补生成（幂等） |
 | 💼 求职引擎 | 粘贴岗位 JD → 结构化入库；求职档案；**匹配度分析**（评分+差距清单+补课建议）；**4 周学习计划**；每日打卡 + **周复盘** |
-| 🔧 记录管理 | 对话式"纠正/删除/标记"——"把作业第3条日期改成11-21"、"删除待办第5条"、"把实习第2条标记为已投" |
+| 🔧 记录管理 | 对话式"纠正/删除"——"把作业第3条日期改成11-21"、"删除待办第5条"
 | 📱 随处可用 | 电脑浏览器 + 手机同 WiFi 访问，口令保护；数据全在本机 SQLite，一个文件即可备份 |
 
 ## 架构
@@ -24,14 +24,14 @@
    ▼
 Spring Boot 3
  ├─ ChatController / ImportController / ReportController
- ├─ AssistantService      意图路由：record/question/correct/delete/mark
+ ├─ AssistantService      意图路由：record/question/correct/delete
  │                         + match_analysis/study_plan/weekly_review
  ├─ ExtractionEngine      抽取引擎：LLM 抽取 → Schema 校验 → 重试 → 按类型入库
  ├─ DailyReportService    早报生成（纯模板，定时 + 懒生成兜底）
  └─ DeepSeekClient        chat / chatJson / chatStream（流式）
    │
    ▼
-SQLite（HikariCP 连接池 + MyBatis-Plus）—— 15 张表，单文件 agent.db
+SQLite（HikariCP 连接池 + MyBatis-Plus）—— 13 张表，单文件 agent.db
 ```
 
 ## 快速开始
@@ -60,7 +60,7 @@ mvn spring-boot:run
 ## 设计亮点（面试可展开的点）
 
 1. **人机协同，而非追求模型完美**：LLM 抽取必然有错，所以每层都有兜底——JSON Schema 校验 + 自动重试 → 失败原文进 `raw_inbox` 永不丢失 → 回执确认 → diff 纠正。可靠性的来源是架构，不是模型。
-2. **能写规则的别指望模型自觉**：状态词表、日期格式、课程名前缀剥离等确定性规则全部在 Java 侧执行；few-shot 示例负责常见模式，规则负责兜底。
+2. **能写规则的别指望模型自觉**：日期格式校验、课程名前缀剥离、记录序号映射等确定性逻辑全部在 Java 侧执行；few-shot 示例负责常见模式，规则负责兜底。
 3. **无状态设计**：纠正/删除/标记通过「类型+编号」定位记录，不依赖"上一条"——CLI 迁 Web 时消灭了共享可变状态的并发隐患。
 4. **重复事件 + 例外模型**：课程按周重复，单日变动（停课/调课）按日期作用域自然过期，零清理逻辑。
 5. **定时任务的可靠性**：早报"定时生成 + 访问时懒生成兜底"双路径，幂等（一天一份），不依赖电脑恰好开机。
@@ -90,7 +90,7 @@ src/main/java/com/campus/agent/
 └─ config/       Bean 装配 / 配置绑定
 src/main/resources/
 ├─ static/index.html   单页聊天前端
-├─ schema.sql          建表（15 张）
+├─ schema.sql          建表（13 张）
 └─ application.yml
 ```
 
