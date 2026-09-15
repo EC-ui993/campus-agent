@@ -71,12 +71,12 @@ mvn spring-boot:run
 
 | 选择 | 理由 |
 |---|---|
-| Java 17 / Spring Boot 3 | 企业 Java 后端事实标准；面向求职 |
-| MyBatis-Plus | 国内招聘 JD 最高频 ORM；零 XML CRUD |
-| SQLite（HikariCP） | 本地单用户零运维；数据源可平滑切 MySQL（演进路线） |
-| EasyExcel | 国内主流 Excel 解析（阿里开源，POI 封装） |
-| SSE 流式 | 长回答打字机体验；DeepSeek stream 模式 |
-| 原生 HTML/JS | 前端刻意做薄，学习重心在 Java 后端 |
+| Java 17 / Spring Boot 3 | LTS 长期支持版本；生态成熟，自动配置 + 内嵌容器让 Web 服务开箱即用 |
+| MyBatis-Plus | SQL 保持可控，同时免去单表 CRUD 样板代码；Lambda 条件构造器类型安全 |
+| SQLite（HikariCP） | 单文件零运维，WAL 模式支持读写并发；基于 JDBC 标准接口，未来可平滑切 MySQL |
+| EasyExcel | POI 之上的封装，回调式流式读取，大文件不占内存 |
+| SSE 流式 | 基于 HTTP 的单向推送，比 WebSocket 更轻量，适合 LLM 逐字输出 |
+| 原生 HTML/JS | 前端保持极简，无构建步骤，改完刷新即见 |
 
 ## 项目结构
 

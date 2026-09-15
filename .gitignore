@@ -6,3 +6,4 @@ config.properties
 start.ps1
 app.log
 app.err.log
+docs/interview/
