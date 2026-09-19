@@ -33,6 +33,12 @@ class PromptsTest {
         assertTrue(prompt.contains("计算机组成习题3、4、6、7、8"),"应包含fewshot示例");
         assertTrue(prompt.contains("不要重复课程名"),"应含 content 去冗余规则");
     }
+
+    @Test
+    void classifyPromptCoversJdAsRecord() {
+        assertTrue(Prompts.CLASSIFY.contains("粘贴岗位 JD 原文"), "应明确 JD 原文归 record");
+        assertTrue(Prompts.CLASSIFY.contains("明确要求"), "能力意图应要求用户明确请求");
+    }
 }
 
 
