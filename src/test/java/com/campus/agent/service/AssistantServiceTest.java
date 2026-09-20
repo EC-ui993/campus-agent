@@ -338,4 +338,21 @@ class AssistantServiceTest {
         assertEquals("本周学了MyBatis-Plus",full);
         assertTrue(llm.lastSystemPrompt.contains("MyBatis-Plus"));
     }
+
+    @Test
+    void matchAnalysisCanTargetInternshipBySeq(){
+        repo.setProfile(new ExtractedProfile("Java、SQL", "Java后端实习生", "广州", "大二", null));
+        repo.insertInternship("字节跳动", "Java后端实习生", "北京", "200-300/天",
+                "2026-09-15", "要求熟悉Spring Boot", "https://example.com/jd/1", 1);
+        repo.insertInternship("腾讯", "前端实习生", "深圳", "300/天",
+                "2026-09-20", "要求熟悉React", "https://example.com/jd/2", 2);
+        FakeLlm llm = new FakeLlm()
+                .json("{\"intent\":\"match_analysis\"}")
+                .streamChunks("匹配度", "80分", "差距是Redis");
+        AssistantService service = newService(llm);
+        StringBuilder received = new StringBuilder();
+        service.handleStreaming("分析实习第1条的匹配度", received::append);
+        assertTrue(llm.lastSystemPrompt.contains("字节跳动"),"应分析第一条，实际：" + llm.lastSystemPrompt);
+        assertFalse(llm.lastSystemPrompt.contains("腾讯"),"不应含第二条，实际：" + llm.lastSystemPrompt);
+    }
 }

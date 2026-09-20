@@ -98,11 +98,19 @@ public class AssistantService {
                     prompt = Prompts.WEEKLY_REVIEW.replace("{logs}","【数据库内容】\n" + logsJson);
                 }
                 else {
-                    Optional<InternshipItem> latest = repo.allInternships().stream().max(Comparator.comparing(InternshipItem::id));
-                    if(latest.isEmpty()){
+                    // 先查"库里有没有实习"（没有 = 引导录入）
+                    if (repo.allInternships().isEmpty()) {
                         String reply = "还没有实习记录，先粘贴一条JD吧";
                         onDelta.accept(reply);
-                        repo.insertMessage("assistant",reply);
+                        repo.insertMessage("assistant", reply);
+                        return reply;
+                    }
+                    // 再按序号（或最新）取目标
+                    Optional<InternshipItem> target = pickInternship(input);
+                    if (target.isEmpty()) {
+                        String reply = "没找到该编号的实习，说“分析匹配度”默认用最新一条。";
+                        onDelta.accept(reply);
+                        repo.insertMessage("assistant", reply);
                         return reply;
                     }
                     Optional<ProfileItem> profileOpt = repo.profile();
@@ -112,7 +120,7 @@ public class AssistantService {
                         repo.insertMessage("assistant",reply);
                         return reply;
                     }
-                    String jdJson = MAPPER.writeValueAsString(latest.get().toMap());
+                    String jdJson = MAPPER.writeValueAsString(target.get().toMap());
                     String profileJson = MAPPER.writeValueAsString(profileOpt.get().toMap());
                     prompt = intent.equals("match_analysis")?Prompts.MATCH_ANALYSIS.replace("{profile}",profileJson).replace("{jd}",jdJson)
                                                             :Prompts.STUDY_PLAN.replace("{profile}",profileJson).replace("{jd}",jdJson);
@@ -347,6 +355,17 @@ public class AssistantService {
             }
         }
         return Optional.empty();
+    }
+
+    /** 解析"第N条"定位实习；无序号则取最新一条（id 最大）。 */
+    private Optional<InternshipItem> pickInternship(String input){
+        Matcher m = Pattern.compile("第\\s*(\\d+)\\s*条").matcher(input);
+        if (m.find()) {
+            long seq = Long.parseLong(m.group(1));
+            return resolveIdBySeq(recordsWithSeq(), "internship", seq)
+                    .flatMap(repo::findInternship);
+        }
+        return repo.allInternships().stream().max(Comparator.comparing(InternshipItem::id));
     }
 
     /** 纠正值非空则用之，否则保留原值。 */
