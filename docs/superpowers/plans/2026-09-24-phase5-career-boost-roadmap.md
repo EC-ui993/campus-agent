@@ -1,7 +1,7 @@
 # 能力补强系列计划（阶段 5~8 + 并行档）
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-> 依据：`docs\interview\能力补强路线.md`（15 份 JD 频率统计）。本系列多数是新栈学习，执行时**以官方教程 + flash 导师讲解为主**，不追求逐行手写（与 1~4 阶段"项目内编码"节奏不同）。
+> 依据：15 份岗位匹配度分析的差距频率统计（个人档案，不入库）。本系列多数是新栈学习，执行时**以官方教程 + flash 导师讲解为主**，不追求逐行手写（与 1~4 阶段"项目内编码"节奏不同）。
 
 **总目标**：4 周内补齐 JD 高频差距——Docker 部署（7/15）、AI 工具沉淀（6/15）、MySQL（5/15）、Python（4/15）、Agent 工具调用（6/15）、前端 Vue（6/15）。
 
@@ -147,4 +147,4 @@
 - [ ] GitHub 至少 3 个仓库：campus-agent（Java 主项目）/ campus-agent-py（Python 复刻）/ agent-demo（工具调用）
 - [ ] AI 工具实践笔记 + 面试问答笔记 + 部署文档 三份成文
 - [ ] 简历三个标签就位：Java 后端 + LLM 应用集成 + AI 工具协作
-- [ ] 每阶段验收后投递一批岗位（边补边投，不等全部完成）
+- [ ] 各阶段完成后回 v4-pro 规划会话汇报验收，评估下一阶段节奏
