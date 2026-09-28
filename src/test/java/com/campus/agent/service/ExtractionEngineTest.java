@@ -1,6 +1,5 @@
 package com.campus.agent.service;
 
-import com.campus.agent.model.ExtractedProfile;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.ProfileItem;
 import com.campus.agent.store.StoredItem;

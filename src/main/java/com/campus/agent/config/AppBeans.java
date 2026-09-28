@@ -44,7 +44,7 @@ public class AppBeans {
     }
 
     @Bean
-    public AssistantService assistantService(LlmClient llm, ItemRepository repo, ExtractionEngine engine, Database db) {
-        return new AssistantService(llm, repo, engine, db);
+    public AssistantService assistantService(LlmClient llm, ItemRepository repo, ExtractionEngine engine) {
+        return new AssistantService(llm, repo, engine);
     }
 }

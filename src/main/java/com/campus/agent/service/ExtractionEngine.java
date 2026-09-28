@@ -7,7 +7,6 @@ import com.campus.agent.store.ItemRepository;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
 /** 抽取引擎：文本 → LLM 抽取（重试 1 次）→ 校验 → 按类型入库 → 失败进 raw_inbox。聊天与导入共用。 */

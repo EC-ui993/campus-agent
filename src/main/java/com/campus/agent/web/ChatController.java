@@ -2,7 +2,6 @@ package com.campus.agent.web;
 
 import com.campus.agent.service.AssistantService;
 import com.campus.agent.store.CourseOccurrence;
-import com.campus.agent.store.StoredItem;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -89,7 +88,7 @@ public class ChatController {
         SseEmitter emitter = new SseEmitter(120_000L);
         chatExecutor.submit(() -> {
             try {
-                String full = service.handleStreaming(req.message(), delta -> {
+                service.handleStreaming(req.message(), delta -> {
                     try {
                         emitter.send(SseEmitter.event().data(delta));
                     } catch (Exception e) {

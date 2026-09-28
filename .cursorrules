@@ -1,0 +1,24 @@
+# 项目规则（Cursor 每次对话自动读取）
+
+## 项目背景
+- 校园助手：本机运行的私人 AI 助手（Java 17 + Spring Boot 3 + MyBatis-Plus + SQLite + DeepSeek API）
+- 前端：`src/main/resources/static/index.html`（原生 HTML/JS，刻意做薄）
+- 仓库：https://github.com/EC-ui993/campus-agent
+
+## 代码约定（必须遵守）
+- **TDD**：先写测试 → 看红 → 再写实现 → 看绿；重构以"测试保持绿"为行为不变的证明
+- **提交信息**：Conventional Commits 前缀（feat:/fix:/docs:/refactor:/test:/chore:），**前缀后描述用中文**
+- **注释与回答用中文**
+- 修改后必须能通过 `mvn test`（当前 82 个测试全绿）
+
+## 禁止事项（安全红线）
+- **绝不提交密钥文件**：`config.properties`、`start.ps1`（含 DeepSeek API Key）、`data/`（数据库）——均已在 .gitignore，不要 `git add -f`
+- 不要修改 `data/agent.db`（用户真实数据）
+- 不要改动 `docs/interview/`（个人求职档案，已 gitignore，不入库）
+- 不要为了消除 IDE 警告而改生产代码（如 JDT 的 null 分析误报）
+
+## 工作方式
+- **先懂再写**：解释"为什么这么写"，不要直接甩大段代码让用户照抄；改动前说清影响面
+- 报错先读第一行、先找根因再改（系统化调试）；不要猜着改
+- 改数据模型/提示词时注意**同步点**：新增抽取类型要同时更新 `ExtractedItem.VALID_TYPES`、`ExtractionEngine` 跳过列表与分支、`Prompts.EXTRACT`、`Prompts.CLASSIFY`
+- 提示词改动**无法用 FakeLlm 测试验证**（FakeLlm 是预置返回），必须靠真实 LLM 走查，且要覆盖不同形态的输入

@@ -41,9 +41,6 @@ class SampleMessagesTest {
     @Autowired
     ItemRepository repo;
 
-    @Autowired
-    Database db;
-
     // 每条 = {用户消息, 抽取结果JSON}
 
     @Autowired AssignmentMapper assignmentMapper;
@@ -94,7 +91,7 @@ class SampleMessagesTest {
         for (String[] sample : SAMPLES) {
             llm.json("{\"intent\":\"record\"}").json(sample[1]);
         }
-        AssistantService service = new AssistantService(llm, repo, new ExtractionEngine(llm, repo), db);
+        AssistantService service = new AssistantService(llm, repo, new ExtractionEngine(llm, repo));
         for (String[] sample : SAMPLES) {
             String reply = service.handle(sample[0]);
             assertTrue(reply.startsWith("✅"), "样例应成功入库，实际回复: " + reply);

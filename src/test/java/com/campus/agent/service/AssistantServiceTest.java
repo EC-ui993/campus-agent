@@ -36,9 +36,6 @@ class AssistantServiceTest {
     @Autowired
     ItemRepository repo;
 
-    @Autowired
-    Database db;
-
     @Autowired AssignmentMapper assignmentMapper;
     @Autowired ExamMapper examMapper;
     @Autowired TodoMapper todoMapper;
@@ -65,7 +62,7 @@ class AssistantServiceTest {
     }
 
     private AssistantService newService(FakeLlm llm) {
-        return new AssistantService(llm, repo, new ExtractionEngine(llm, repo), db);
+        return new AssistantService(llm, repo, new ExtractionEngine(llm, repo));
     }
 
     private static final String VALID_ASSIGNMENT = """

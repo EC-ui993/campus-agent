@@ -3,13 +3,10 @@ package com.campus.agent.service;
 import com.campus.agent.Prompts;
 import com.campus.agent.llm.LlmClient;
 import com.campus.agent.model.ExtractedItem;
-import com.campus.agent.model.ExtractedOverride;
-import com.campus.agent.model.ExtractedSemesterSetting;
 import com.campus.agent.store.*;
 
 import java.time.LocalDate;
 
-import com.campus.agent.store.entity.Internship;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,13 +28,11 @@ public class AssistantService {
     private final LlmClient llm;
     private final ItemRepository repo;
     private final ExtractionEngine engine;
-    private final Database db;
 
-    public AssistantService(LlmClient llm, ItemRepository repo, ExtractionEngine engine, Database db) {
+    public AssistantService(LlmClient llm, ItemRepository repo, ExtractionEngine engine) {
         this.llm = llm;
         this.repo = repo;
         this.engine = engine;
-        this.db = db;
     }
 
     /** 供测试与 Main 查询用。 */
@@ -371,10 +366,6 @@ public class AssistantService {
     /** 纠正值非空则用之，否则保留原值。 */
     private String pick(String newValue, String oldValue) {
         return (newValue != null && !newValue.isBlank()) ? newValue : oldValue;
-    }
-
-    private String ack(ExtractedItem item) {
-        return "✅ 已记录：" + summarize(item);
     }
 
     private String summarize(ExtractedItem item) {
