@@ -1,0 +1,12 @@
+# 构建上下文排除（与 .gitignore 同思想：不参与构建的东西别传给 daemon）
+target/
+data/
+.git/
+.idea/
+.vscode/
+*.log
+.env
+config.properties
+start.ps1
+docs/
+README.md
