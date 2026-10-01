@@ -39,6 +39,8 @@
   #internshipPanel.collapsed #internshipList { display: none; }
   #internshipList { white-space: pre-wrap; padding:0 16px 10px; font-size:14px; line-height:1.8; }
   #internshipList .empty { color:#999; }
+  .records-toggle { text-align:right; margin-top:6px; color:#409eff; cursor:pointer; user-select:none; font-size:14px; }
+  .records-toggle:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -64,6 +66,8 @@
 </footer>
 <script>
   const TOKEN_KEY = "campus-agent-token";
+  /** 「查看记录」默认展示条数：超出此条数才出现「展开」（改成 20 只需改这里） */
+  const RECORDS_PREVIEW_LIMIT = 20;
   let token = localStorage.getItem(TOKEN_KEY);
   if(!token){
     token = prompt("请输入口令：");
@@ -239,6 +243,32 @@
     }
   }
 
+    /** 记录气泡：条数超过 RECORDS_PREVIEW_LIMIT 时默认只显示前几条，右下角可展开/收起。
+     *  行文字与「展开」按钮必须是 bubble 下的两个独立子节点——给节点赋 textContent 会清空其全部子元素。 */
+    function addRecordsBubble(lines) {
+      const bubble = addBubble("", "assistant");
+      const text = document.createElement("div");
+      bubble.appendChild(text);
+
+      if (lines.length <= RECORDS_PREVIEW_LIMIT) {
+        text.textContent = lines.join("\n");
+        return;
+      }
+
+      const toggle = document.createElement("div");
+      toggle.className = "records-toggle";
+      bubble.appendChild(toggle);
+
+      let expanded = false;
+      function render() {
+        text.textContent = (expanded ? lines : lines.slice(0, RECORDS_PREVIEW_LIMIT)).join("\n");
+        toggle.textContent = expanded ? "收起" : "展开";
+        messages.scrollTop = messages.scrollHeight;
+      }
+      toggle.onclick = () => { expanded = !expanded; render(); };
+      render();
+    }
+
     async function showItems() {
       try {
         const resp = await fetch("/api/items", {
@@ -249,13 +279,14 @@
           alert("口令错误，请刷新页面重新输入");
           return;
         }
-        const items = await resp.json();
+        // 实习记录有独立面板（💼 实习列表），此处剔除以免重复展示
+        const items = (await resp.json()).filter(it => it.type !== "internship");
         if (!items.length) {
-          addBubble("（数据库还没有记录）", "assistant");
+          addBubble("（没有实习以外的记录）", "assistant");
           return;
         }
         const lines = items.map(it => `[${it.type}] #${it.seq} 《${it.title}》 ${it.dueDate || it.startTime || "-"}${it.content ? " ｜ " + it.content : ""}`);
-        addBubble(lines.join("\n"), "assistant");
+        addRecordsBubble(lines);
       } catch (err) {
         addBubble("网络错误：" + err, "assistant");
       }
