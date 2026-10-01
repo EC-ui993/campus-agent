@@ -4,6 +4,7 @@ config.properties
 .idea/
 *.iml
 start.ps1
+start.cmd
 app.log
 app.err.log
 docs/interview/
