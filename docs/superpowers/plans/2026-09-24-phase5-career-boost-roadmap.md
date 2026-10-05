@@ -78,10 +78,16 @@
   - `datetime('now','localtime')` → `DATETIME ... DEFAULT CURRENT_TIMESTAMP`
   - **`report_date` 必须改 `VARCHAR(32) NOT NULL UNIQUE`**（执行层核实：MySQL 对 TEXT/BLOB 列建索引报 ERROR 1170，UNIQUE 即建唯一索引 → 建表直接失败；这是全 schema 唯一一处 TEXT 参与键定义。代码存 "yyyy-MM-dd" 字符串，语义不变）
   - 已核实安全（执行层结论，执行时不必复查）：① semester/profile 显式 setId(1L)，不依赖自增；② created_at/updated_at 全项目无实体映射（纯 DB 侧默认值），方言改写零影响
-- [ ] **顺带清理死配置与死代码**（执行层复核指出，规划层 grep 已核实）：
+- [ ] **顺带清理死配置与死代码**（执行层复核四修正，规划层 2026-10-05 定案）：
   - `application.yml` 第 22 行 `app.db-path` 与 `AppProperties.dbPath` 字段：唯一消费者是即将删除的 database() bean → 一并删除
-  - `AppConfig.java`：grep 全项目**零引用**（AppProperties 早已取代它；其 load() 读的 config.properties 也随 start.ps1/.env 方案废弃）→ 删除
-  - `Main.java`：grep 全项目**零引用**（jar 入口是 CampusAgentApplication，start.cmd 跑的是 Boot jar）→ 删除前确认命令行入口确已废弃（学员跑一次 start.cmd 验证后删）
+  - **`AppConfig.java`：删除**。判定依据：grep 全项目（含 pom.xml、.java）零引用——注意其唯一"潜在"用户 Main.java 并不用它（Main 从 Spring 上下文取 Bean）
+  - **AppConfig 删除的连带公开文档**（执行层复核四指出，防"假说明书"）：
+    - README「快速开始」第 3 步：去掉"或写进 config.properties"选项（config.properties 已无任何代码读取）
+    - 删除 `config.properties.example`（模板随读取方一同作废）
+    - `.gitignore` 的 `config.properties` 行：可选保留（留着无害，纯噪音）——学员自定
+    - **阶段 1 历史笔记里的大量 config.properties 描述是历史记录，一律不动**
+  - **`Main.java`：保留（选项 A）**。判定依据修正：pom.xml 第 75-83 行 exec-maven-plugin 以 Main 为 mainClass（`mvn exec:java` 跑的是它）——"grep *.java 零引用"≠零引用，构建配置也是引用来源；Main 是阶段 1 交付物（命令行 REPL + 冒烟模式），保留有实际用途且零成本
+  - **本轮教训（记入计划备注）**：① 判死代码要查全部引用来源——.java 之外还有 pom.xml 构建配置、反射、Spring 扫描；② 删公开行为要连带查公开文档，否则留下"照做无效"的假说明书
 - [ ] pom 加 mysql-connector-j；application.yml 数据源切 MySQL；建 `agent` 库
 - [ ] **删除 Database 类，建表单通道化**（规划层 2026-10-05 定案，grep 已核实）：
   - 生产代码中 `Database` 仅被 AppBeans 的孤儿 bean 引用（无任何消费者，只是启动时重复建表）→ 删除 `store/Database.java` + AppBeans 的 `database()` bean 与其 import
