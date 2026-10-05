@@ -74,9 +74,14 @@
 
 - [ ] 装 MySQL（本地或 Docker：`docker run mysql:8`）；学建库/用户/权限基本命令
 - [ ] **schema.sql 改造（MySQL 方言，规划层 2026-10-05 定案 P2 方案）**：
-  - `INTEGER PRIMARY KEY AUTOINCREMENT` → `BIGINT AUTO_INCREMENT PRIMARY KEY`；`datetime('now','localtime')` → `DATETIME ... DEFAULT CURRENT_TIMESTAMP`
+  - **主键统一写成 `BIGINT AUTO_INCREMENT PRIMARY KEY`（全部 13 张表，含 semester/profile 两处裸 `INTEGER PRIMARY KEY`）**——执行层复核指出：裸主键写 `BIGINT PRIMARY KEY` 会让翻译规则匹配不上、SQLite 侧静默变成不自增，埋"测试与生产行为分叉"的隐患；统一后一条翻译规则全覆盖（向自增列显式插 id=1 在 MySQL 完全合法，setSemester/setProfile 不受影响）
+  - `datetime('now','localtime')` → `DATETIME ... DEFAULT CURRENT_TIMESTAMP`
   - **`report_date` 必须改 `VARCHAR(32) NOT NULL UNIQUE`**（执行层核实：MySQL 对 TEXT/BLOB 列建索引报 ERROR 1170，UNIQUE 即建唯一索引 → 建表直接失败；这是全 schema 唯一一处 TEXT 参与键定义。代码存 "yyyy-MM-dd" 字符串，语义不变）
-  - 已核实安全（执行层结论，执行时不必复查）：① semester/profile 裸 `INTEGER PRIMARY KEY` 无自增——两处 setXxx 均显式 setId(1L)，不依赖自增；② created_at/updated_at 全项目无实体映射（纯 DB 侧默认值），方言改写零影响
+  - 已核实安全（执行层结论，执行时不必复查）：① semester/profile 显式 setId(1L)，不依赖自增；② created_at/updated_at 全项目无实体映射（纯 DB 侧默认值），方言改写零影响
+- [ ] **顺带清理死配置与死代码**（执行层复核指出，规划层 grep 已核实）：
+  - `application.yml` 第 22 行 `app.db-path` 与 `AppProperties.dbPath` 字段：唯一消费者是即将删除的 database() bean → 一并删除
+  - `AppConfig.java`：grep 全项目**零引用**（AppProperties 早已取代它；其 load() 读的 config.properties 也随 start.ps1/.env 方案废弃）→ 删除
+  - `Main.java`：grep 全项目**零引用**（jar 入口是 CampusAgentApplication，start.cmd 跑的是 Boot jar）→ 删除前确认命令行入口确已废弃（学员跑一次 start.cmd 验证后删）
 - [ ] pom 加 mysql-connector-j；application.yml 数据源切 MySQL；建 `agent` 库
 - [ ] **删除 Database 类，建表单通道化**（规划层 2026-10-05 定案，grep 已核实）：
   - 生产代码中 `Database` 仅被 AppBeans 的孤儿 bean 引用（无任何消费者，只是启动时重复建表）→ 删除 `store/Database.java` + AppBeans 的 `database()` bean 与其 import
@@ -91,6 +96,7 @@
   - 删除 `DatabaseTest`（连同 Database 类）
   - MySQL 侧靠 Task 2 的 Compose 环境做端到端验收 + 1-2 个 `@SpringBootTest` MySQL 冒烟
   - 性能可选优化（默认不启用）：9 个测试类各自临时库 → 9 次 Spring 上下文启动是慢测试主因；若改"共享临时库 + 每方法清表"可降到 1 次，代价是失去类间隔离——执行时若测试明显变慢再评估，不提前做
+  - **顺带收益（记入阶段 6 笔记）**：9 个测试类各自的 dbPath 样板（createTempFile + 前缀各不同）收敛为 TempDb 一处——「消除重复 / 单一职责」的真实案例，比空讲原则有说服力
   - （备查：Spring 官方另有 `spring.sql.init.platform` 双文件自动选型方案 P3——双份 DDL 漂移风险仍在，未选）
 - [ ] **老库数据搬运**（SQLite → MySQL，一次性）：数据量小，两选项学员自选——① 手动重录（最省事；已核实安全：source_message_id 只写不读、messages 表不搬不影响功能）② `py` 的 sqlite3 导出 CSV/INSERT 再导入 MySQL（练一次数据迁移）；任选其一并记录过程
 - [ ] 练习索引与 EXPLAIN：给 assignments.due_date、courses.weekday 建索引，`EXPLAIN SELECT ...` 讲执行计划
