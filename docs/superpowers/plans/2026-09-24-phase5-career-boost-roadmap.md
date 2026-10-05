@@ -5,48 +5,75 @@
 
 **总目标**：4 周内补齐 JD 高频差距——Docker 部署（7/15）、AI 工具沉淀（6/15）、MySQL（5/15）、Python（4/15）、Agent 工具调用（6/15）、前端 Vue（6/15）。
 
-**执行顺序**：阶段 5 → 6 → 7 → 8 串行；并行档 E 贯穿全程。每阶段完成回 v4-pro 汇报后再进下一阶段。
+**执行顺序**：阶段 5（✅ 已完成 2026-10-05）→ **6（当前）** → 7 → 8 串行；并行档 E 贯穿全程。每阶段完成回 v4-pro 汇报后再进下一阶段。
 
 ---
 
-# 阶段 5（A 档）：部署与工具（Task 1~4，约 3 天）
+# 阶段 5（A 档）：部署与工具（Task 1~4，约 3 天）✅ 已完成（2026-10-05）
 
-## Task 1: AI 编程工具工作流切换（A1）
+## Task 1: AI 编程工具工作流切换（A1）✅
 
-- [ ] 安装 Cursor 与 Claude Code（二者选一为主，建议 Cursor 上手快）
-- [ ] 在本项目根目录建 `.cursorrules`（或 CLAUDE.md）：写清项目约定——"Java 17、先懂再写、TDD、Conventional Commits、不提交密钥文件"
-- [ ] 用 Cursor 完成本阶段 Task 2/3 的开发，全程记录：上下文怎么组织、AI 生成比例、踩过的能力边界
-- [ ] 产出 `docs\interview\AI辅助开发实践笔记.md`（注意：docs/interview/ 已被 gitignore，属个人档案不入库）
-- 验收：笔记成文 + 后续所有任务默认用 AI 工具执行
+- [x] 安装 Cursor 与 Claude Code（二者选一为主，建议 Cursor 上手快）
+- [x] 在本项目根目录建 `.cursorrules`（或 CLAUDE.md）：写清项目约定——"Java 17、先懂再写、TDD、Conventional Commits、不提交密钥文件"
+- [x] 用 Cursor 完成本阶段 Task 2/3 的开发，全程记录：上下文怎么组织、AI 生成比例、踩过的能力边界
+- [x] 产出 `docs\interview\AI辅助开发实践笔记.md`（注意：docs/interview/ 已被 gitignore，属个人档案不入库）
+- 验收：笔记成文 + 后续所有任务默认用 AI 工具执行 ✅
 
-## Task 2: Docker 打包本项目（A2）
+## Task 2: Docker 打包本项目（A2）✅
 
-- [ ] 学概念：镜像/容器/Dockerfile/多阶段构建（flash 讲 + 官方 Getting Started）
-- [ ] 装 Docker Desktop（Windows）
-- [ ] 写 Dockerfile（多阶段：maven:3.9-eclipse-temurin-17 构建 → eclipse-temurin:17-jre 运行；`COPY target/*.jar`）
-- [ ] `docker build -t campus-agent .` → `docker run -p 8080:8080 campus-agent`
-- [ ] 验证：容器内 http://localhost:8080 聊天/早报可用；注意 `data/agent.db` 用 volume 挂载（`-v agent-data:/data`），数据不随容器销毁
-- [ ] 记录踩坑（Windows 路径、镜像加速器）进阶段笔记
-- 验收：一条 `docker run` 命令拉起完整服务，手机同 WiFi 可访问
+- [x] 学概念：镜像/容器/Dockerfile/多阶段构建（flash 讲 + 官方 Getting Started）
+- [x] 装 Docker Desktop（Windows）
+- [x] 写 Dockerfile（多阶段：maven:3.9-eclipse-temurin-17 构建 → eclipse-temurin:17-jre 运行；`COPY target/*.jar`）
+- [x] `docker build -t campus-agent .` → `docker run -p 8080:8080 campus-agent`
+- [x] 验证：容器内 http://localhost:8080 聊天/早报可用；注意 `data/agent.db` 用 volume 挂载（`-v agent-data:/data`），数据不随容器销毁
+- [x] 记录踩坑（Windows 路径、镜像加速器）进阶段笔记
+- 验收：一条 `docker run` 命令拉起完整服务，手机同 WiFi 可访问 ✅
+- **实际结果**：镜像 **109 MB**；容器映射 `:8081`、命名卷 `agent-data`（与本地库隔离，可当隔离试验台）；排障笔记 `docs\notes\2026-09-28-phase5-task2-docker.md`（含 pom 缺 `spring-boot-maven-plugin` 导致 jar 无 Main-Class 的修复）
 
-## Task 3: 量化指标（A4）
+## Task 3: 量化指标（A4）✅
 
-- [ ] `cloc` 或 IDEA 统计代码行数；测试数取 `mvn test` 汇总（80+）
-- [ ] 抽取准确率：取 10 条真实老师通知，人工标注期望结果 → 逐个跑抽取 → 算准确率（写"小样本 N/10"）
-- [ ] 接口延迟：早报生成、/api/chat 各测 3 次取均值（curl 计时或浏览器 DevTools）
-- [ ] README 增加「数据」小节（测试数/行数/准确率/延迟）
-- 验收：README 有数据节，面试叙事可引用
+- [x] `cloc` 或 IDEA 统计代码行数；测试数取 `mvn test` 汇总（80+）
+- [x] 抽取准确率：取 10 条真实老师通知，人工标注期望结果 → 逐个跑抽取 → 算准确率（写"小样本 N/10"）
+- [x] 接口延迟：早报生成、/api/chat 各测 3 次取均值（curl 计时或浏览器 DevTools）
+- [x] README 增加「数据」小节（测试数/行数/准确率/延迟）
+- 验收：README 有数据节，面试叙事可引用 ✅
+- **实际数据**（笔记 `docs\notes\2026-10-05-phase5-task3-metrics.md`）：
+  - 代码规模：主代码 55 文件 / 2756 非空行；测试 17 / 1442（约 1 : 1.9）
+  - 测试数：82 通过
+  - 抽取准确率：**小样本 9/10**（严格字面 5/10 作下界；判定口径与披露见笔记）
+  - 接口延迟：早报缓存命中 2.6 ms / 现场生成 9.5 ms；`/api/chat` 1516 ms（约 99% 是 LLM 推理，本地 ≤ 10 ms）
+- **副产品发现（价值高于指标，待规划层排期）**：
+  - ① `course_override` 无字段可存"补到哪一天"（设计缺口）
+  - ② `study_progress` / `profile` 在界面上完全不可见
+  - ③ `context` 对同一句式处理不一致（输出稳定性）
+  - ④ `answer()` 提示词包含全库记录 → 延迟随记录数增长（O(n)）
 
-## Task 4: GitHub 收尾（A3，若未完成）
+## Task 4: GitHub 收尾（A3，若未完成）✅
 
-- [ ] 按交接文档「简历化任务：GitHub 发布」步骤完成（建仓 → remote → push → Description/Topics → 复核）
-- 验收：Public 仓库可访问、README 渲染正常、无密钥文件
+- [x] 按交接文档「简历化任务：GitHub 发布」步骤完成（建仓 → remote → push → Description/Topics → 复核）
+- 验收：Public 仓库可访问、README 渲染正常、无密钥文件 ✅（含 2026-09-24 历史清理）
 
-**阶段 5 验收**：Docker 一条命令可跑 + AI 工具笔记成文 + README 数据节 + GitHub 仓库在线。
+**阶段 5 验收** ✅ 全部通过：Docker 一条命令可跑（109MB 镜像）+ AI 工具笔记成文 + README 数据节 + GitHub 仓库在线。
+
+### 阶段 5 沉淀的可复用纪律（做量化指标、写简历数据时必守）
+
+1. **先标注、后预测**——看到模型输出再补期望＝自我批改
+2. **判定口径必须预注册**；事后细化要如实披露，并保留严格口径数作为下界
+3. **训练集污染**：提示词里的 few-shot 示例不能再当考题
+4. **测真实分布**：计划假设"粘贴老师通知"，实际用法是自述式输入——测错分布等于没测
+5. **分离**：本地开销 vs LLM 开销（ms 级 vs 秒级）；缓存命中 vs 现场生成
+6. **小样本只报 N/10**，不折算百分比
+
+### 待排期（规划层队列）
+
+- **4.8 四问题小修**（Task 3 暴露的 ①②③④，建议打包；用户倾向排在阶段 6 之后）
+- **4.5 状态标记 + JD 去重**（计划 `2026-08-31-phase4.5-internship-polish.md` 已就绪，继续排队）
 
 ---
 
-# 阶段 6（B 档）：MySQL 与第二语言（Task 1~3，约 1 周）
+# 阶段 6（B 档）：MySQL 与第二语言（Task 1~3，约 1 周）⏭️ 当前执行中（2026-10-05 起）
+
+> 前置基础（阶段 5 已备好）：项目已有 Dockerfile 与 109MB 镜像、`.env` 环境变量文件（docker --env-file 用）、Docker Desktop 就绪。Task 2 是在既有镜像上加编排，**不要重写 Dockerfile**。
 
 ## Task 1: 本项目 SQLite → MySQL 迁移（B1a）
 
@@ -143,8 +170,8 @@
 
 ## 整体验收（阶段 5~8 全部完成时）
 
-- [ ] Docker 一条命令起全栈（app+mysql+nginx+Vue 前端）
-- [ ] GitHub 至少 3 个仓库：campus-agent（Java 主项目）/ campus-agent-py（Python 复刻）/ agent-demo（工具调用）
-- [ ] AI 工具实践笔记 + 面试问答笔记 + 部署文档 三份成文
+- [x] Docker 一条命令起应用（阶段 5 ✅，109MB 镜像）——全栈三件套（app+mysql+nginx+Vue 前端）待阶段 6/8 完成后核销
+- [ ] GitHub 至少 3 个仓库：campus-agent（Java 主项目，✅ 已在线）/ campus-agent-py（Python 复刻）/ agent-demo（工具调用）
+- [ ] AI 工具实践笔记（✅ 已成文）+ 面试问答笔记 + 部署文档 三份成文
 - [ ] 简历三个标签就位：Java 后端 + LLM 应用集成 + AI 工具协作
 - [ ] 各阶段完成后回 v4-pro 规划会话汇报验收，评估下一阶段节奏
