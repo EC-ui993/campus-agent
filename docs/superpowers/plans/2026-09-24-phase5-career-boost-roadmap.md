@@ -73,20 +73,25 @@
 ## Task 1: 本项目 SQLite → MySQL 迁移（B1a）
 
 - [ ] 装 MySQL（本地或 Docker：`docker run mysql:8`）；学建库/用户/权限基本命令
-- [ ] schema.sql 适配 MySQL：`INTEGER PRIMARY KEY AUTOINCREMENT` → `BIGINT AUTO_INCREMENT PRIMARY KEY`；`datetime('now','localtime')` → `CURRENT_TIMESTAMP`；TEXT 兼容
+- [ ] **schema.sql 改造（MySQL 方言，规划层 2026-10-05 定案 P2 方案）**：
+  - `INTEGER PRIMARY KEY AUTOINCREMENT` → `BIGINT AUTO_INCREMENT PRIMARY KEY`；`datetime('now','localtime')` → `DATETIME ... DEFAULT CURRENT_TIMESTAMP`
+  - **`report_date` 必须改 `VARCHAR(32) NOT NULL UNIQUE`**（执行层核实：MySQL 对 TEXT/BLOB 列建索引报 ERROR 1170，UNIQUE 即建唯一索引 → 建表直接失败；这是全 schema 唯一一处 TEXT 参与键定义。代码存 "yyyy-MM-dd" 字符串，语义不变）
+  - 已核实安全（执行层结论，执行时不必复查）：① semester/profile 裸 `INTEGER PRIMARY KEY` 无自增——两处 setXxx 均显式 setId(1L)，不依赖自增；② created_at/updated_at 全项目无实体映射（纯 DB 侧默认值），方言改写零影响
 - [ ] pom 加 mysql-connector-j；application.yml 数据源切 MySQL；建 `agent` 库
 - [ ] **删除 Database 类，建表单通道化**（规划层 2026-10-05 定案，grep 已核实）：
   - 生产代码中 `Database` 仅被 AppBeans 的孤儿 bean 引用（无任何消费者，只是启动时重复建表）→ 删除 `store/Database.java` + AppBeans 的 `database()` bean 与其 import
   - 建表唯一通道 = Spring 的 `spring.sql.init`（读 schema.sql）；`CREATE TABLE IF NOT EXISTS` 幂等，`mode: always` 每次启动安全
   - 版本化迁移（ALTER 历史账本）**暂不引入 Flyway**（YAGNI，单用户场景 DROP/CREATE 或一次性搬运足够；等真正需要"改历史 schema"时再上）
-- [ ] **测试层适配**（单测继续 SQLite，理由：测试的是业务行为而非建表语句；SQLite 快、免装 MySQL）：
-  - 新增测试工具 `src/test/java/com/campus/agent/testing/TempDb.java`：造临时 SQLite 文件 + 执行测试 DDL + 返回 url；**9 个碰库测试类全部已是 `@SpringBootTest + @DynamicPropertySource`**（执行层已核实：ChatController/ItemRepository/AssistantService/SampleMessages/Semester/ExtractionEngine/ReportController/ImportController/DailyReportService），各测试的 DynamicPropertySource 调 TempDb 即可，**无需手搓 SqlSessionFactory**（该开放问题已关闭）
+- [ ] **测试层适配（P2：单份 MySQL DDL + 测试侧方言翻译器，规划层 2026-10-05 定案）**：
+  - **只保留一份 schema.sql（MySQL 方言）**；TempDb 读**同一份文件**，做机械替换后交给 SQLite：
+    `BIGINT AUTO_INCREMENT PRIMARY KEY` → `INTEGER PRIMARY KEY AUTOINCREMENT`；`DATETIME ... DEFAULT CURRENT_TIMESTAMP` → `TEXT ... DEFAULT (datetime('now','localtime'))`；`VARCHAR(n)` → `TEXT`
+  - 理由（执行层分析，已采纳）：漂移在结构上不可能发生；**SchemaParityTest 整块取消**——它只抓"忘加列"，抓不到"同列语义不同"（report_date 同名同 UNIQUE 就是活例：parity 绿而 MySQL 建表红）；且查 information_schema 需要 MySQL 连接，违背"单测免装 MySQL"
+  - 替换规则集中成一张表（TempDb 内常量或注释），它本身就是「SQLite 与 MySQL 差在哪」的活文档；诚实提示：SQLite 类型名宽容，翻译器漏掉的差异不一定响亮报错——由 MySQL 冒烟测试 + Compose 端到端兜底
+  - **9 个碰库测试类全部已是 `@SpringBootTest + @DynamicPropertySource`**（执行层已核实），各测试的 DynamicPropertySource 调 TempDb 即可，**无需手搓 SqlSessionFactory**（该开放问题已关闭）
   - 删除 `DatabaseTest`（连同 Database 类）
   - MySQL 侧靠 Task 2 的 Compose 环境做端到端验收 + 1-2 个 `@SpringBootTest` MySQL 冒烟
-  - **两份 DDL 防漂移守卫**（执行层复核指出：schema.sql 与测试夹具是同一套 13 张表的两份定义，必会漂移）：
-    - 新增 `SchemaParityTest`：分别用两份 DDL 建库，比对表名 + 列名集合（SQLite 侧 `PRAGMA table_info`，MySQL 侧 `information_schema.columns` 或对测试 DDL 也做同样解析）——把"记得同步"从人的责任心变成机器断言
-    - 两份 DDL 文件顶部各加交叉引用注释（"改这里必须同步另一份"）
   - 性能可选优化（默认不启用）：9 个测试类各自临时库 → 9 次 Spring 上下文启动是慢测试主因；若改"共享临时库 + 每方法清表"可降到 1 次，代价是失去类间隔离——执行时若测试明显变慢再评估，不提前做
+  - （备查：Spring 官方另有 `spring.sql.init.platform` 双文件自动选型方案 P3——双份 DDL 漂移风险仍在，未选）
 - [ ] **老库数据搬运**（SQLite → MySQL，一次性）：数据量小，两选项学员自选——① 手动重录（最省事；已核实安全：source_message_id 只写不读、messages 表不搬不影响功能）② `py` 的 sqlite3 导出 CSV/INSERT 再导入 MySQL（练一次数据迁移）；任选其一并记录过程
 - [ ] 练习索引与 EXPLAIN：给 assignments.due_date、courses.weekday 建索引，`EXPLAIN SELECT ...` 讲执行计划
 - 验收：项目在 MySQL 上全功能跑通 + 能讲清 2 条 EXPLAIN 输出 + 生产代码中已无 Database 类
