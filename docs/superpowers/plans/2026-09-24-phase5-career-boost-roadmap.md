@@ -75,9 +75,17 @@
 - [ ] 装 MySQL（本地或 Docker：`docker run mysql:8`）；学建库/用户/权限基本命令
 - [ ] schema.sql 适配 MySQL：`INTEGER PRIMARY KEY AUTOINCREMENT` → `BIGINT AUTO_INCREMENT PRIMARY KEY`；`datetime('now','localtime')` → `CURRENT_TIMESTAMP`；TEXT 兼容
 - [ ] pom 加 mysql-connector-j；application.yml 数据源切 MySQL；建 `agent` 库
-- [ ] 全量测试适配（@DynamicPropertySource 指向临时 MySQL？——个人机用独立测试库 `agent_test`，或保留 SQLite 跑单测 + 手动验 MySQL；flash 与学员商量，推荐测试库方案）
+- [ ] **删除 Database 类，建表单通道化**（规划层 2026-10-05 定案，grep 已核实）：
+  - 生产代码中 `Database` 仅被 AppBeans 的孤儿 bean 引用（无任何消费者，只是启动时重复建表）→ 删除 `store/Database.java` + AppBeans 的 `database()` bean 与其 import
+  - 建表唯一通道 = Spring 的 `spring.sql.init`（读 schema.sql）；`CREATE TABLE IF NOT EXISTS` 幂等，`mode: always` 每次启动安全
+  - 版本化迁移（ALTER 历史账本）**暂不引入 Flyway**（YAGNI，单用户场景 DROP/CREATE 或一次性搬运足够；等真正需要"改历史 schema"时再上）
+- [ ] **测试层适配**（单测继续 SQLite，理由：测试的是业务行为而非建表语句；SQLite 快、免装 MySQL）：
+  - 新增测试工具 `src/test/java/com/campus/agent/testing/TempDb.java`：静态工厂 `DataSource createTemp()`——临时 SQLite 文件 + `ScriptUtils.executeSqlScript` 执行测试专用建表（SQLite 方言，作为测试夹具内嵌）
+  - 删除 `DatabaseTest`；`AssistantServiceTest`/`SampleMessagesTest` 等改用 TempDb（纯单测里 Mapper 如何装配——flash 与学员商量：手搓 SqlSessionFactory 或改 @SpringBootTest + 动态 datasource；优先保持快测）
+  - MySQL 侧靠 Task 2 的 Compose 环境做端到端验收 + 1-2 个 `@SpringBootTest` MySQL 冒烟
+- [ ] **老库数据搬运**（SQLite → MySQL，一次性）：数据量小，两选项学员自选——① 手动重录（最省事）② `py` 的 sqlite3 导出 CSV/INSERT 再导入 MySQL（练一次数据迁移）；任选其一并记录过程
 - [ ] 练习索引与 EXPLAIN：给 assignments.due_date、courses.weekday 建索引，`EXPLAIN SELECT ...` 讲执行计划
-- 验收：项目在 MySQL 上全功能跑通 + 能讲清 2 条 EXPLAIN 输出
+- 验收：项目在 MySQL 上全功能跑通 + 能讲清 2 条 EXPLAIN 输出 + 生产代码中已无 Database 类
 
 ## Task 2: Docker Compose 全家桶（B1b）
 
