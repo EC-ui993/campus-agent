@@ -2,7 +2,6 @@ package com.campus.agent.service;
 
 import com.campus.agent.model.ExtractedItem;
 import com.campus.agent.model.ExtractedProfile;
-import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.StoredItem;
 import com.campus.agent.store.mapper.*;

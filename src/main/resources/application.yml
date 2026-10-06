@@ -21,7 +21,6 @@ app:
   api-key: ${DEEPSEEK_API_KEY:在这里填入你的key}
   model: deepseek-chat
   base-url: https://api.deepseek.com
-  db-path: data/agent.db
   access-token: xinside
   report-cron: "0 0 7 * * ?"
         # report-cron: "0 0 7 * * ?"

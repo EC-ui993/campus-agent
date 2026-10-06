@@ -4,7 +4,6 @@ import com.campus.agent.llm.DeepSeekClient;
 import com.campus.agent.llm.LlmClient;
 import com.campus.agent.service.AssistantService;
 import com.campus.agent.service.ExtractionEngine;
-import com.campus.agent.store.Database;
 import com.campus.agent.store.ItemRepository;
 import com.campus.agent.store.mapper.*;
 
@@ -12,16 +11,8 @@ import javax.sql.DataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.nio.file.Path;
-import java.sql.SQLException;
-
 @Configuration
 public class AppBeans {
-
-    @Bean
-    public Database database(AppProperties props) throws SQLException {
-        return new Database(Path.of(props.dbPath()));
-    }
 
     @Bean
     public ItemRepository itemRepository(AssignmentMapper assignmentMapper, ExamMapper examMapper,
