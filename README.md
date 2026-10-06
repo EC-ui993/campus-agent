@@ -2,7 +2,7 @@
 
 一个跑在本机的私人 AI 助手：把课程表、作业、考试、实习 JD 等消息扔给它，它自动抽取成结构化数据存本地，随时回答你的问题，并每天主动汇报。从「你问它答」到「它主动找你」。
 
-> Java 17 · Spring Boot 3 · MyBatis-Plus · SQLite · DeepSeek API · 原生 JS 前端 · 80 个自动化测试
+> Java 17 · Spring Boot 3 · MyBatis-Plus · MySQL 8 · DeepSeek API · 原生 JS 前端 · 85 个自动化测试
 
 ## 功能一览
 
@@ -14,7 +14,7 @@
 | 📅 每日早报 | 每天 7:00 定时生成：今日课程、到期作业、临近考试、今日待办；电脑没开机时访问页面即时补生成（幂等） |
 | 💼 求职引擎 | 粘贴岗位 JD → 结构化入库；求职档案；**匹配度分析**（评分+差距清单+补课建议）；**4 周学习计划**；每日打卡 + **周复盘** |
 | 🔧 记录管理 | 对话式"纠正/删除"——"把作业第3条日期改成11-21"、"删除待办第5条"
-| 📱 随处可用 | 电脑浏览器 + 手机同 WiFi 访问，口令保护；数据全在本机 SQLite，一个文件即可备份 |
+| 📱 随处可用 | 电脑浏览器 + 手机同 WiFi 访问，口令保护；数据全在本机 MySQL，不依赖任何云服务 |
 
 ## 架构
 
@@ -31,21 +31,31 @@ Spring Boot 3
  └─ DeepSeekClient        chat / chatJson / chatStream（流式）
    │
    ▼
-SQLite（HikariCP 连接池 + MyBatis-Plus）—— 13 张表，单文件 agent.db
+MySQL 8（HikariCP 连接池 + MyBatis-Plus）—— 13 张表
 ```
 
 ## 快速开始
 
 ```bash
-# 1. 环境：JDK 17+、Maven 3.9+
-# 2. 准备 DeepSeek API Key（platform.deepseek.com）
-# 3. 设置环境变量（或写进 config.properties，已被 gitignore）
-$env:DEEPSEEK_API_KEY="sk-xxxx"
+# 1. 环境：JDK 17+、Maven 3.9+、MySQL 8
+#    MySQL 可用 Docker 一条命令拉起：
+#    docker run -d --name agent-mysql -e MYSQL_ROOT_PASSWORD=root123 -e MYSQL_DATABASE=agent -p 3306:3306 -v agent-mysql-data:/var/lib/mysql mysql:8
 
-# 4. 启动
+# 2. 准备 DeepSeek API Key（platform.deepseek.com）
+
+# 3. 建库与账号（在 MySQL 中执行一次；表结构在首次启动时由 schema.sql 自动创建）
+#    CREATE DATABASE IF NOT EXISTS agent CHARACTER SET utf8mb4;
+#    CREATE USER 'campus'@'%' IDENTIFIED BY '你的密码';
+#    GRANT SELECT,INSERT,UPDATE,DELETE,CREATE,ALTER,INDEX ON agent.* TO 'campus'@'%';
+
+# 4. 设置环境变量
+$env:DEEPSEEK_API_KEY="sk-xxxx"
+$env:DB_PASSWORD="你的密码"
+
+# 5. 启动
 mvn spring-boot:run
 
-# 5. 浏览器打开 http://localhost:8080，输入口令（application.yml 中 access-token）
+# 6. 浏览器打开 http://localhost:8080，输入口令（application.yml 中 access-token）
 ```
 
 然后试着说：
@@ -90,7 +100,7 @@ mvn spring-boot:run
 |---|---|
 | Java 17 / Spring Boot 3 | LTS 长期支持版本；生态成熟，自动配置 + 内嵌容器让 Web 服务开箱即用 |
 | MyBatis-Plus | SQL 保持可控，同时免去单表 CRUD 样板代码；Lambda 条件构造器类型安全 |
-| SQLite（HikariCP） | 单文件零运维，WAL 模式支持读写并发；基于 JDBC 标准接口，未来可平滑切 MySQL |
+| MySQL 8（HikariCP） | 生产级关系型数据库；由 SQLite 平滑迁移而来（schema 方言化 + 测试侧方言翻译器），支持索引与 EXPLAIN 调优 |
 | EasyExcel | POI 之上的封装，回调式流式读取，大文件不占内存 |
 | SSE 流式 | 基于 HTTP 的单向推送，比 WebSocket 更轻量，适合 LLM 逐字输出 |
 | 原生 HTML/JS | 前端保持极简，无构建步骤，改完刷新即见 |
@@ -103,7 +113,7 @@ src/main/java/com/campus/agent/
 ├─ service/      编排：AssistantService / ExtractionEngine / DailyReportService / ExcelReader
 ├─ llm/          DeepSeekClient（chat/chatJson/chatStream）
 ├─ model/        抽取结果 record（8 种类型 + 校验）
-├─ store/        MyBatis-Plus：entity / mapper / ItemRepository / Database
+├─ store/        MyBatis-Plus：entity / mapper / ItemRepository
 └─ config/       Bean 装配 / 配置绑定
 src/main/resources/
 ├─ static/index.html   单页聊天前端
@@ -118,5 +128,5 @@ src/main/resources/
 
 ## 许可与隐私
 
-- 数据 100% 本地（SQLite 单文件），仅必要文本发送给模型 API
+- 数据 100% 本地（自建 MySQL，不依赖云服务），仅必要文本发送给模型 API
 - 个人学习项目，MIT 可选
