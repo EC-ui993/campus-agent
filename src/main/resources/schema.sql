@@ -5,10 +5,11 @@ CREATE TABLE IF NOT EXISTS assignments(
   teacher TEXT,
   content TEXT,
   due_date VARCHAR(32),
-  due_time TEXT,
+  due_time VARCHAR(8),
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   source_message_id INTEGER,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_assignments_due (due_date, due_time));
 
 CREATE TABLE IF NOT EXISTS exams(
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -18,7 +19,7 @@ CREATE TABLE IF NOT EXISTS exams(
   content TEXT,
   location TEXT,
   due_date VARCHAR(32),
-  due_time TEXT,
+  due_time VARCHAR(8),
   status VARCHAR(20) NOT NULL DEFAULT 'upcoming',
   source_message_id INTEGER,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
@@ -28,7 +29,7 @@ CREATE TABLE IF NOT EXISTS todos(
   title TEXT NOT NULL,
   content TEXT,
   due_date VARCHAR(32),
-  due_time TEXT,
+  due_time VARCHAR(8),
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   source_message_id INTEGER,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS courses(
   start_time TEXT,
   end_time TEXT,
   source_message_id INTEGER,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_courses_weekday (weekday));
 
 CREATE TABLE IF NOT EXISTS events(
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -51,7 +53,7 @@ CREATE TABLE IF NOT EXISTS events(
   content TEXT,
   location TEXT,
   due_date VARCHAR(32),
-  due_time TEXT,
+  due_time VARCHAR(8),
   status VARCHAR(20) NOT NULL DEFAULT 'upcoming',
   source_message_id INTEGER,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);
