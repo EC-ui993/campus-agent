@@ -15,8 +15,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.campus.agent.testing.TempDb;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -27,13 +26,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class ChatControllerTest {
 
-    private static Path dbPath;
-
     @DynamicPropertySource
-    static void props(DynamicPropertyRegistry registry) throws Exception {
-        dbPath = Files.createTempFile("agent-web-test", ".db");
-        Files.deleteIfExists(dbPath); // SQLite 会重新创建
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + dbPath);
+    static void props(DynamicPropertyRegistry registry) {
+        TempDb.register(registry);
     }
 
     @TestConfiguration

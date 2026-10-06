@@ -4,8 +4,10 @@ server:
 
 spring:
   datasource:
-    url: jdbc:sqlite:data/agent.db
-    driver-class-name: org.sqlite.JDBC
+    url: jdbc:mysql://localhost:3306/agent?allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USER:campus}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
       mode: always

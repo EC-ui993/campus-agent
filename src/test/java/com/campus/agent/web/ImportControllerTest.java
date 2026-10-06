@@ -16,8 +16,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.ByteArrayOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.campus.agent.testing.TempDb;
 import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -27,13 +26,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class ImportControllerTest {
 
-    private static Path dbPath;
-
     @DynamicPropertySource
-    static void props(DynamicPropertyRegistry registry) throws Exception {
-        dbPath = Files.createTempFile("import-test", ".db");
-        Files.deleteIfExists(dbPath);
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + dbPath);
+    static void props(DynamicPropertyRegistry registry) {
+        TempDb.register(registry);
     }
 
     @TestConfiguration

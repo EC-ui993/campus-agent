@@ -14,8 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.campus.agent.testing.TempDb;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -24,13 +23,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 class AssistantServiceTest {
 
-    private static Path dbPath;
-
     @DynamicPropertySource
-    static void props(DynamicPropertyRegistry registry) throws Exception {
-        dbPath = Files.createTempFile("agent-service-test", ".db");
-        Files.deleteIfExists(dbPath);
-        registry.add("spring.datasource.url", () -> "jdbc:sqlite:" + dbPath);
+    static void props(DynamicPropertyRegistry registry) {
+        TempDb.register(registry);
     }
 
     @Autowired
