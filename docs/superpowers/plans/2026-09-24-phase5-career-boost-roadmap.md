@@ -5,7 +5,7 @@
 
 **总目标**：4 周内补齐 JD 高频差距——Docker 部署（7/15）、AI 工具沉淀（6/15）、MySQL（5/15）、Python（4/15）、Agent 工具调用（6/15）、前端 Vue（6/15）。
 
-**执行顺序**：阶段 5（✅ 已完成 2026-10-05）→ **6（当前）** → 7 → 8 串行；并行档 E 贯穿全程。每阶段完成回 v4-pro 汇报后再进下一阶段。
+**执行顺序**：阶段 5（✅ 2026-10-05）→ 6（✅ 2026-10-25）→ **6.5（Flyway，当前）** → 7 → 8 串行；并行档 E 贯穿全程。每阶段完成回 v4-pro 汇报后再进下一阶段。
 
 ---
 
@@ -66,7 +66,7 @@
 
 ---
 
-# 阶段 6（B 档）：MySQL 与第二语言（Task 1~3，约 1 周）⏭️ 当前执行中（2026-10-05 起）
+# 阶段 6（B 档）：MySQL 与第二语言（Task 1~3，约 1 周）✅ 已完成（2026-10-25）
 
 > 前置基础（阶段 5 已备好）：项目已有 Dockerfile 与 109MB 镜像、`.env` 环境变量文件（docker --env-file 用）、Docker Desktop 就绪。Task 2 是在既有镜像上加编排，**不要重写 Dockerfile**。
 
@@ -116,12 +116,25 @@
 - [ ] 产出 `docs\部署文档.md`（步骤 + 踩坑 + 架构图文字版）
 - 验收：一条 `docker compose up -d` 拉起三服务，手机可访问
 
-## Task 3: Python + FastAPI 复刻最小闭环（B2）
+## Task 3: Python + FastAPI 复刻最小闭环（B2）✅
 
 - [ ] 学：Python 基础语法（你有 Java 功底，对照学：venv/pip、类型注解、异步）、FastAPI、openai SDK
 - [ ] 做：独立小项目 `campus-agent-py`——POST /chat 收消息 → 调 DeepSeek（openai SDK）→ 结构化抽取 → SQLite 入库 → 问答。**只做最小闭环**，不复制全部功能
 - [ ] 推 GitHub（独立仓库），README 说明"Java 版主项目 + Python 复刻版"的对照关系
+
+### 阶段 6 实际产出（执行层汇报 2026-10-25，与计划偏差均属正向发现）
+
+- **Task 1**：schema 方言化时除计划内的 report_date(1170) 外又排掉两颗 TEXT 雷——5× status 默认值(1101)、due_date 需可索引；TempDb 翻译器带"残留 MySQL 记号即抛错"守卫；数据搬运脚本导出 INSERT，13/13 表逐行一致、中文完好；索引 assignments(due_date,due_time) 复合 + courses(weekday)，EXPLAIN 前后对比讲透（含 filesort 消失原理）
+- **Task 2**：nginx(8088) + app + mysql 8.4；mysql healthcheck + `condition: service_healthy`；关键踩坑 `proxy_buffering off`（否则 SSE 被打成整坨）；端口 8088 而非 80（宿主 80 被其他双栈进程占用，现象是"无 Server 头的 404"）；`docs\部署文档.md` 含 11 条真实排障
+- **Task 3**：campus-agent-py 已上线（单文件 131 行，Pydantic 校验 + /extract + /ask）；教学重点：venv↔Maven 对照、Python 类型注解"无执行力但被框架赋予执行力"、装饰器≠注解、参数化查询本质
+- **遗留信号（已排期 6.5）**：3 处 schema 来源（本地库 / Compose 卷 / SQLite 遗留）→ 改 schema 要手动对齐多处，且 agent_test 已因旧表 TEXT 咬过一次 1170 → 引入 Flyway
 - 验收：Python 版跑通录入+问答，GitHub 可访问
+
+---
+
+# 阶段 6.5：Flyway 迁移引入（schema 版本化）⏭️ 当前执行中（2026-10-25 排期）
+
+> 独立计划：`docs\superpowers\plans\2026-10-25-phase6.5-flyway.md`（Task A→D：概念 → 引入 Flyway 双环境 → TempDb 读 V1 → V2/V3 演练+验收压轴）。动机：阶段 6 后存在 3 处 schema 来源且已真实咬人（agent_test 1170）；4.8 的 schema 变更将用它做第一次真实迁移。
 
 ---
 
@@ -196,7 +209,7 @@
 
 - [x] Docker 一条命令起应用（阶段 5 ✅，109MB 镜像）
 - [ ] 全栈三件套 app+mysql+nginx+Vue 前端 一键编排（阶段 6 Task 2 完成 app+mysql+nginx；Vue 前端随阶段 8 加入）
-- [ ] GitHub 至少 3 个仓库：campus-agent（Java 主项目，✅ 已在线）/ campus-agent-py（Python 复刻）/ agent-demo（工具调用）
-- [ ] AI 工具实践笔记（✅ 已成文）+ 面试问答笔记 + 部署文档 三份成文
+- [ ] GitHub 至少 3 个仓库：campus-agent（Java 主项目，✅ 已在线）/ campus-agent-py（Python 复刻，✅ 已在线）/ agent-demo（工具调用，阶段 7）
+- [ ] AI 工具实践笔记（✅ 已成文）+ 面试问答笔记 + 部署文档（✅ 已产出，11 条排障）三份成文
 - [ ] 简历三个标签就位：Java 后端 + LLM 应用集成 + AI 工具协作
 - [ ] 各阶段完成后回 v4-pro 规划会话汇报验收，评估下一阶段节奏
