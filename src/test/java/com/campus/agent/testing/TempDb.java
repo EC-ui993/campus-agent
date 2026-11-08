@@ -1,8 +1,9 @@
 package com.campus.agent.testing;
 
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.EncodedResource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 
@@ -11,21 +12,37 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 测试用临时数据库。
  *
- * <p>生产环境的 {@code schema.sql} 是 MySQL 方言，而单元测试跑在 SQLite 上（快、免装 MySQL）。
- * 本类读<b>同一份</b> {@code schema.sql}，做方言翻译后再交给 SQLite 建表——
+ * <p>生产环境的迁移脚本（{@code db/migration/V*.sql}）是 MySQL 方言，而单元测试跑在 SQLite 上
+ * （快、免装 MySQL）。本类读<b>同一批</b>迁移脚本，做方言翻译后按版本顺序在 SQLite 上重放——
  * 只有一份 DDL，所以不存在"两份定义互相漂移"的问题。
  *
- * <p><b>为什么不直接把 schema.sql 丢给 SQLite：</b>SQLite 对类型名极其宽容，
+ * <p><b>为什么是"重放全部迁移"而不是"只读 V1"：</b>测试库要的是<b>当前结构</b>，
+ * 也就是所有迁移叠加后的结果。只读 V1 的话，V2 之后任何净增加的变更（比如加一列）
+ * 都到不了测试库——测试就会跑在一个"看起来像生产、其实少了列"的库上，
+ * 而且很可能一路绿到出线上问题。所以必须逐个重放。
+ *
+ * <p><b>为什么不直接把脚本丢给 SQLite：</b>SQLite 对类型名极其宽容，
  * {@code id BIGINT AUTO_INCREMENT PRIMARY KEY} 不会报错，而是被理解成
  * "类型 = BIGINT AUTO_INCREMENT"，于是该列<b>不再是 rowid 别名、不再自增</b>——
  * 建表成功、插入成功、读回来 id 是 null。方言差异会以"静默行为改变"的形式出现，
  * 不会响亮报错。{@link #toSqlite} 末尾的守卫就是为了把这种沉默变成异常。
  */
 public final class TempDb {
+
+    /** 迁移脚本的位置，与生产 Flyway 的 {@code spring.flyway.locations} 保持一致。 */
+    private static final String MIGRATION_PATTERN = "classpath*:db/migration/V*.sql";
+
+    /** 迁移文件名约定：V&lt;版本号&gt;__&lt;描述&gt;.sql */
+    private static final Pattern MIGRATION_NAME = Pattern.compile("^V(\\d+)__");
 
     private TempDb() {
     }
@@ -34,7 +51,7 @@ public final class TempDb {
      * 方言翻译规则，顺序敏感。
      *
      * <p><b>这张表本身就是「SQLite 与 MySQL 差在哪」的活文档</b>——
-     * schema.sql 里一旦出现新的 MySQL 专有写法，就在这里补一条。
+     * 迁移脚本里一旦出现新的 MySQL 专有写法，就在这里补一条。
      */
     private static final String[][] DIALECT = {
             // MySQL 自增主键 → SQLite 的 rowid 别名（必须恰好是 INTEGER，否则不自增）
@@ -43,6 +60,9 @@ public final class TempDb {
             {"DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP", "TEXT NOT NULL DEFAULT (datetime('now','localtime'))"},
             // MySQL 变长字符串 → SQLite 只有 TEXT（类型名对 SQLite 无约束力）
             {"VARCHAR\\(\\d+\\)", "TEXT"},
+            // MySQL 的行内索引 KEY name (cols) → SQLite 的 CREATE TABLE 不支持，整条删掉。
+            // 索引只影响性能、不影响行为，测试库不需要；而 UNIQUE 是"列约束"不是 KEY 子句，会原样保留。
+            {",\\s*KEY\\s+\\w+\\s*\\([^)]*\\)", ""},
     };
 
     /** 翻译后不允许残留的 MySQL 专有记号；残留即抛错，不让"静默行为差异"溜过去。 */
@@ -52,7 +72,7 @@ public final class TempDb {
 
     /**
      * 注册测试数据源：新建一个 SQLite 临时库（表已按翻译后的 DDL 建好），
-     * 并关闭 Spring 的 schema.sql 自动执行——建表由本类负责，因为必须先翻译。
+     * 并关闭 Spring 的初始化与 Flyway——建表由本类负责，因为必须先翻译。
      *
      * <p>各 {@code @SpringBootTest} 的写法因此收敛为一行：
      * <pre>{@code
@@ -67,7 +87,11 @@ public final class TempDb {
         registry.add("spring.datasource.url", () -> url);
         // application.yml 里写的是 MySQL 驱动，测试要显式换成 SQLite 的
         registry.add("spring.datasource.driver-class-name", () -> "org.sqlite.JDBC");
+        // 建表由本类独家负责：Spring 的 schema 初始化与 Flyway 都必须关掉。
+        // 否则它们会拿 MySQL 方言的 DDL 去跑 SQLite —— SQLite 类型名宽容，
+        // 不会报错，只会静默生成错结构（阶段 6 踩过：id 失去自增、读回来是 null）。
         registry.add("spring.sql.init.mode", () -> "never");
+        registry.add("spring.flyway.enabled", () -> "false");
     }
 
     /** 新建一个建好表的 SQLite 临时库，返回其 JDBC URL。 */
@@ -76,10 +100,12 @@ public final class TempDb {
             Path file = Files.createTempFile("agent-test-", ".db");
             file.toFile().deleteOnExit();
             try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + file)) {
-                String ddl = toSqlite(readSchema());
-                ScriptUtils.executeSqlScript(conn,
-                        new EncodedResource(new ByteArrayResource(ddl.getBytes(StandardCharsets.UTF_8)),
-                                StandardCharsets.UTF_8));
+                for (Resource migration : readMigrations()) {
+                    String ddl = toSqlite(readText(migration));
+                    ScriptUtils.executeSqlScript(conn,
+                            new EncodedResource(new ByteArrayResource(ddl.getBytes(StandardCharsets.UTF_8)),
+                                    StandardCharsets.UTF_8));
+                }
             }
             return "jdbc:sqlite:" + file;
         } catch (Exception e) {
@@ -87,14 +113,39 @@ public final class TempDb {
         }
     }
 
-    /** 读生产 schema.sql 的原文。 */
-    private static String readSchema() throws Exception {
-        try (var in = new ClassPathResource("schema.sql").getInputStream()) {
+    /**
+     * 读出所有迁移脚本，<b>按版本号数值</b>排好序。
+     *
+     * <p>不能按文件名字典序排：{@code V10} 会排到 {@code V2} 前面，
+     * 导致"在 V1 之后、V2 之前"执行，建表顺序就错了。
+     */
+    private static List<Resource> readMigrations() throws Exception {
+        Resource[] found = new PathMatchingResourcePatternResolver().getResources(MIGRATION_PATTERN);
+        if (found.length == 0) {
+            throw new IllegalStateException("找不到任何迁移脚本：" + MIGRATION_PATTERN);
+        }
+        return Arrays.stream(found)
+                .sorted(Comparator.comparingInt(TempDb::versionOf))
+                .toList();
+    }
+
+    /** 从 {@code V<数字>__xxx.sql} 里抽出版本号；不符合约定就立刻报错。 */
+    private static int versionOf(Resource resource) {
+        String name = resource.getFilename();
+        Matcher matcher = MIGRATION_NAME.matcher(name == null ? "" : name);
+        if (!matcher.find()) {
+            throw new IllegalStateException("迁移文件名不符合 V<版本>__<描述>.sql 约定: " + name);
+        }
+        return Integer.parseInt(matcher.group(1));
+    }
+
+    private static String readText(Resource resource) throws Exception {
+        try (var in = resource.getInputStream()) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 
-    /** 把 MySQL 方言的 schema.sql 翻译成 SQLite 能<b>正确</b>执行的 DDL（不只是"能执行"）。 */
+    /** 把 MySQL 方言的 DDL 翻译成 SQLite 能<b>正确</b>执行的 DDL（不只是"能执行"）。 */
     static String toSqlite(String mysqlSchema) {
         String sql = mysqlSchema;
         for (String[] rule : DIALECT) {
